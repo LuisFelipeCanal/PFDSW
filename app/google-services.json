@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "333423868152",
+    "project_id": "mercadovivo-10",
+    "storage_bucket": "mercadovivo-10.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:333423868152:android:bce7083f6e0f293eade30d",
+        "android_client_info": {
+          "package_name": "com.mercadovivo.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB2-VQAp3lPvYOkWysOqqw40_wShKFQ7F0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
