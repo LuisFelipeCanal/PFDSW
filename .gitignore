@@ -1,0 +1,14 @@
+*.iml
+/.gradle/
+/.idea/
+/.kotlin/
+/build/
+/local.properties
+.DS_Store
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+docs/
+gradle_build_log_root.txt
+verify_and_fix.ps1
