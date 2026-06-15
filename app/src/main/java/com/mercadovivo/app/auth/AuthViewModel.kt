@@ -1,51 +1,99 @@
 package com.mercadovivo.app.auth
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
-class AuthViewModel(private val repo: AuthRepository = AuthRepository()) : ViewModel() {
+class AuthViewModel(private val repository: AuthRepository = AuthRepository()) : ViewModel() {
 
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
+    var isLoading by mutableStateOf(false)
+        private set
 
-    private val _userId = MutableStateFlow<String?>(null)
-    val userId: StateFlow<String?> = _userId
+    var errorMessage by mutableStateOf<String?>(null)
+        private set
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error
+    var isAdmin by mutableStateOf(false)
+        private set
 
-    fun register(email: String, password: String, displayName: String) {
+    var currentUser by mutableStateOf(repository.getCurrentUser())
+        private set
+
+    val userId get() = currentUser?.uid
+
+    init {
+        checkAdminStatus()
+    }
+
+    private fun checkAdminStatus() {
+        val uid = userId ?: return
         viewModelScope.launch {
-            _isLoading.value = true
-            val res = repo.register(email, password, displayName)
-            if (res.isSuccess) {
-                _userId.value = res.getOrNull()
-            } else {
-                _error.value = res.exceptionOrNull()?.localizedMessage
+            try {
+                val doc = FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uid)
+                    .get()
+                    .await()
+                isAdmin = doc.getBoolean("isAdmin") ?: false
+            } catch (e: Exception) {
+                isAdmin = false
             }
-            _isLoading.value = false
         }
     }
 
-    fun login(email: String, password: String) {
+    fun login(email: String, password: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
-            _isLoading.value = true
-            val res = repo.login(email, password)
-            if (res.isSuccess) {
-                _userId.value = res.getOrNull()
-            } else {
-                _error.value = res.exceptionOrNull()?.localizedMessage
-            }
-            _isLoading.value = false
+            isLoading = true
+            errorMessage = null
+            repository.login(email, password)
+                .onSuccess { 
+                    currentUser = repository.getCurrentUser()
+                    checkAdminStatus()
+                    onSuccess() 
+                }
+                .onFailure { errorMessage = it.message ?: "Error desconocido" }
+            isLoading = false
+        }
+    }
+
+    fun register(email: String, password: String, displayName: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
+            repository.register(email, password, displayName)
+                .onSuccess { 
+                    currentUser = repository.getCurrentUser()
+                    checkAdminStatus()
+                    onSuccess() 
+                }
+                .onFailure { errorMessage = it.message ?: "Error desconocido" }
+            isLoading = false
         }
     }
 
     fun logout() {
-        repo.logout()
-        _userId.value = null
+        repository.logout()
+        currentUser = null
+        isAdmin = false
+    }
+
+    // Manual admin activation for the user's specific request
+    fun activateAdminMode(password: String): Boolean {
+        if (password == "AdminMercado2024") { // Temporary admin password
+            isAdmin = true
+            return true
+        }
+        return false
+    }
+
+    fun changePassword(current: String, new: String, onResult: (Result<Unit>) -> Unit) {
+        viewModelScope.launch {
+            val result = repository.changePassword(current, new)
+            onResult(result)
+        }
     }
 }
-

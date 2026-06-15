@@ -14,10 +14,18 @@ data class Huarique(
     val phone: String? = null,
     val email: String? = null,
     val photos: List<String> = emptyList(),
-    val featuredPlates: List<String> = emptyList(),
-    val featuredBeverages: List<String> = emptyList(),
-    val featuredDesserts: List<String> = emptyList(),
+    val menuPlates: List<Plato> = emptyList(),
+    val menuBeverages: List<Plato> = emptyList(),
+    val menuDesserts: List<Plato> = emptyList(),
+    val reviews: List<Review> = emptyList(),
+    val ingredients: List<Ingredient> = emptyList(),
     val videoPath: String? = null,
+    val audioPath: String? = null,
     val isVerified: Boolean = false
 )
 
+data class Ingredient(
+    val name: String = "",
+    val amount: String = "",
+    val notes: String = ""
+)

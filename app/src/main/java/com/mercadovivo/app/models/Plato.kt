@@ -9,6 +9,6 @@ data class Plato(
     val price: Double = 0.0,
     val rating: Double = 0.0,
     val photoLabel: String = "",
-    val videoLabel: String = ""
+    val videoLabel: String = "",
+    val chefTip: String = ""
 )
-

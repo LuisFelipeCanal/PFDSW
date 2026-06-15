@@ -1,15 +1,18 @@
 package com.mercadovivo.app.auth
 
-// Repositorio de autenticación mock para el MVP.
-// Cuando integres Firebase, reemplaza estos métodos por FirebaseAuth + Firestore.
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.EmailAuthProvider
+import kotlinx.coroutines.tasks.await
+
 class AuthRepository {
+    private val auth = FirebaseAuth.getInstance()
 
     suspend fun register(email: String, password: String, displayName: String): Result<String> {
         return try {
-            if (email.isBlank() || password.isBlank() || displayName.isBlank()) {
-                throw IllegalArgumentException("Complete todos los campos")
-            }
-            Result.success("mock-uid-123")
+            val result = auth.createUserWithEmailAndPassword(email, password).await()
+            val user = result.user ?: throw Exception("Error al crear usuario")
+            // Update profile with display name if needed
+            Result.success(user.uid)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -17,16 +20,29 @@ class AuthRepository {
 
     suspend fun login(email: String, password: String): Result<String> {
         return try {
-            if (email.isBlank() || password.isBlank()) {
-                throw IllegalArgumentException("Complete email y contraseña")
-            }
-            Result.success("mock-uid-123")
+            val result = auth.signInWithEmailAndPassword(email, password).await()
+            val user = result.user ?: throw Exception("Error al iniciar sesión")
+            Result.success(user.uid)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
     fun logout() {
-        // Aquí iría FirebaseAuth.getInstance().signOut()
+        auth.signOut()
+    }
+
+    fun getCurrentUser() = auth.currentUser
+
+    suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> {
+        return try {
+            val user = auth.currentUser ?: throw Exception("Usuario no autenticado")
+            val credential = EmailAuthProvider.getCredential(user.email!!, currentPassword)
+            user.reauthenticate(credential).await()
+            user.updatePassword(newPassword).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

@@ -8,6 +8,11 @@
         android:allowBackup="true"
         android:label="MercadoVivo"
         android:theme="@style/Theme.MercadoVivo">
+
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="YOUR_API_KEY_HERE" />
+
         <activity
             android:name="com.mercadovivo.app.MainActivity"
             android:exported="true">
