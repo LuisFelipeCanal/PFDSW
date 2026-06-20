@@ -34,8 +34,10 @@ fun ProfileScreen(
     onNavigateToPrivacy: () -> Unit,
     onNavigateToHelp: () -> Unit,
     onNavigateToAdmin: () -> Unit,
+    onNavigateToRegisterLocal: () -> Unit,
     onLogout: () -> Unit
 ) {
+    val userData = authViewModel.userData
     val user = authViewModel.currentUser
     val scrollState = rememberScrollState()
     var showAdminDialog by remember { mutableStateOf(false) }
@@ -69,22 +71,46 @@ fun ProfileScreen(
                     color = Color.White
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(40.dp), tint = Color.Gray)
+                        if (userData?.photoUrl?.isNotEmpty() == true) {
+                            coil.compose.AsyncImage(
+                                model = userData.photoUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(40.dp), tint = Color.Gray)
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(
-                        text = user?.displayName ?: "Usuario Demo",
+                        text = userData?.displayName ?: user?.displayName ?: "Cargando...",
                         color = Color.White,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = user?.email ?: "demo@mercadovivo.pe",
-                        color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 14.sp
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            color = if (authViewModel.isAdmin) Color(0xFFFFEB3B) else Color.White.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = authViewModel.userRole,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (authViewModel.isAdmin) Color.Black else Color.White
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = user?.email ?: "",
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             }
         }
@@ -110,7 +136,7 @@ fun ProfileScreen(
             ) {
                 Column {
                     ProfileMenuItem(Icons.Default.Person, "Editar perfil", onNavigateToEditProfile)
-                    ProfileMenuItem(Icons.Default.Place, "Mis direcciones", onNavigateToAddresses)
+                    ProfileMenuItem(Icons.Default.LocationOn, "Configuración de ubicación", onNavigateToAddresses)
                     ProfileMenuItem(Icons.Default.Notifications, "Notificaciones", onNavigateToNotifications)
                     ProfileMenuItem(Icons.Default.Lock, "Privacidad y seguridad", onNavigateToPrivacy)
                     ProfileMenuItem(Icons.Default.Info, "Ayuda y soporte", onNavigateToHelp)
@@ -129,10 +155,18 @@ fun ProfileScreen(
                     Text("Panel de Administrador", fontWeight = FontWeight.Bold)
                 }
                 Spacer(modifier = Modifier.height(16.dp))
+
+                TextButton(
+                    onClick = { authViewModel.exitAdminMode() },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text("Salir del modo administrador", color = Color.Gray, fontSize = 14.sp)
+                }
+                Spacer(modifier = Modifier.height(24.dp))
             } else {
-                 TextButton(onClick = { showAdminDialog = true }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                TextButton(onClick = { showAdminDialog = true }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                     Text("Acceso Administrador", color = Color.Gray)
-                 }
+                }
             }
 
             // About Section

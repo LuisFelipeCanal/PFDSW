@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.maps.model.LatLng
 import com.mercadovivo.app.data.HuariqueRepository
 import com.mercadovivo.app.models.Huarique
 import kotlinx.coroutines.flow.collectLatest
@@ -17,6 +18,10 @@ class HuariqueViewModel(private val repository: HuariqueRepository = HuariqueRep
 
     var isLoading by mutableStateOf(false)
         private set
+
+    var userLocation by mutableStateOf<LatLng?>(null)
+    
+    var isLocationEnabled by mutableStateOf(true)
 
     init {
         loadHuariques()
@@ -33,6 +38,6 @@ class HuariqueViewModel(private val repository: HuariqueRepository = HuariqueRep
     }
 
     fun findById(id: String): Huarique? {
-        return huariques.firstOrNull { it.id == id }
+        return huariques.find { it.id == id }
     }
 }

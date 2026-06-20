@@ -93,8 +93,21 @@ fun InfoRow(label: String, value: String) {
 fun HuariqueCard(
     huarique: Huarique,
     onClick: () -> Unit,
+    userLocation: com.google.android.gms.maps.model.LatLng? = null,
     selected: Boolean = false
 ) {
+    val distanceText = androidx.compose.runtime.remember(huarique, userLocation) {
+        if (userLocation != null && huarique.lat != null && huarique.lng != null) {
+            val meters = com.mercadovivo.app.utils.LocationUtils.calculateDistance(
+                userLocation,
+                com.google.android.gms.maps.model.LatLng(huarique.lat, huarique.lng)
+            )
+            com.mercadovivo.app.utils.LocationUtils.formatDistance(meters)
+        } else {
+            null
+        }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -151,22 +164,22 @@ fun HuariqueCard(
                     )
                 }
                 
-                if (huarique.isVerified) {
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(12.dp)
-                    ) {
-                        Text(
-                            text = "Abierto",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                val isOpen = com.mercadovivo.app.utils.TimeUtils.isStoreOpen(huarique.horario)
+                
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = if (isOpen) Color(0xFF4CAF50) else Color.Gray,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = if (isOpen) "Abierto" else "Cerrado",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
 
@@ -182,9 +195,9 @@ fun HuariqueCard(
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("📍")
+                        Text(if (distanceText != null) "📍" else "📍")
                         Text(
-                            text = huarique.district,
+                            text = distanceText ?: huarique.district,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

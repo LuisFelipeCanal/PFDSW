@@ -11,9 +11,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -89,7 +90,10 @@ fun FullMenuScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(currentList) { plato ->
-                    DishListItem(plato, onClick = { onDishClick(plato) })
+                    DishListItem(
+                        plato = plato, 
+                        onClick = { onDishClick(plato) }
+                    )
                 }
             }
         }
@@ -105,8 +109,9 @@ fun DishListItem(plato: Plato, onClick: () -> Unit) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column {
+            val photo = if(plato.photoLabel.isNotEmpty()) plato.photoLabel else "https://placeholder.com/400"
             AsyncImage(
-                model = if(plato.photoLabel.isNotEmpty()) plato.photoLabel else "https://placeholder.com/400",
+                model = photo,
                 contentDescription = null,
                 modifier = Modifier.fillMaxWidth().height(160.dp),
                 contentScale = ContentScale.Crop
@@ -131,15 +136,20 @@ fun DishListItem(plato: Plato, onClick: () -> Unit) {
 fun DishDetailScreen(
     huarique: Huarique,
     plato: Plato,
+    isFavorite: Boolean = false,
     onBack: () -> Unit,
+    onToggleFavorite: () -> Unit,
     onWatchVideo: () -> Unit
 ) {
+    var showFullScreenImage by remember { mutableStateOf(false) }
+    
     Column(modifier = Modifier.fillMaxSize().background(Color(0xFFFFFBF0)).verticalScroll(rememberScrollState())) {
         Box(modifier = Modifier.fillMaxWidth().height(300.dp)) {
+            val photo = if(plato.photoLabel.isNotEmpty()) plato.photoLabel else "https://placeholder.com/400"
             AsyncImage(
-                model = if(plato.photoLabel.isNotEmpty()) plato.photoLabel else "https://placeholder.com/400",
+                model = photo,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().clickable { showFullScreenImage = true },
                 contentScale = ContentScale.Crop
             )
             Row(
@@ -154,8 +164,15 @@ fun DishDetailScreen(
                         Icon(Icons.Default.Share, contentDescription = null)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(onClick = {}, modifier = Modifier.background(Color.White.copy(alpha = 0.5f), CircleShape)) {
-                        Icon(Icons.Default.FavoriteBorder, contentDescription = null)
+                    IconButton(
+                        onClick = onToggleFavorite, 
+                        modifier = Modifier.background(Color.White.copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, 
+                            contentDescription = null,
+                            tint = if (isFavorite) Color.Red else Color.Black
+                        )
                     }
                 }
             }
@@ -189,7 +206,7 @@ fun DishDetailScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-            Divider(color = Color.LightGray.copy(alpha = 0.5f))
+            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.height(24.dp))
             
             Text("Ingredientes visibles", fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -204,7 +221,12 @@ fun DishDetailScreen(
                             Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                                 Surface(modifier = Modifier.size(6.dp), shape = CircleShape, color = Color(0xFFE27553)) {}
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(ingredient, fontSize = 14.sp)
+                                Column {
+                                    Text(ingredient.name, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                    if (ingredient.amount.isNotEmpty()) {
+                                        Text(ingredient.amount, fontSize = 12.sp, color = Color.Gray)
+                                    }
+                                }
                             }
                         }
                         if (rowIngredients.size == 1) Spacer(modifier = Modifier.weight(1f))
@@ -229,6 +251,11 @@ fun DishDetailScreen(
                 }
             }
         }
+    }
+
+    if (showFullScreenImage) {
+        val photo = if(plato.photoLabel.isNotEmpty()) plato.photoLabel else "https://placeholder.com/400"
+        FullScreenImageDialog(imageUrl = photo, onDismiss = { showFullScreenImage = false })
     }
 }
 
@@ -348,7 +375,12 @@ fun VideoPrepScreen(
                                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                                        Surface(modifier = Modifier.size(6.dp), shape = CircleShape, color = Color(0xFFE27553)) {}
                                        Spacer(modifier = Modifier.width(8.dp))
-                                       Text(ingredient, fontSize = 14.sp, color = Color.Black)
+                                       Column {
+                                           Text(ingredient.name, fontSize = 14.sp, color = Color.Black, fontWeight = FontWeight.Medium)
+                                           if (ingredient.amount.isNotEmpty()) {
+                                               Text(ingredient.amount, fontSize = 12.sp, color = Color.Gray)
+                                           }
+                                       }
                                    }
                                }
                                if (rowIngredients.size == 1) Spacer(modifier = Modifier.weight(1f))

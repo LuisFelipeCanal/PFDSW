@@ -4,9 +4,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
+import kotlinx.coroutines.launch
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
@@ -68,11 +71,7 @@ fun MercadoVivoNavGraph(
             }
             SplashScreen(
                 onRegisterClick = { navController.navigate(MarketRoutes.REGISTER) },
-                onLoginClick = { 
-                    navController.navigate(MarketRoutes.LOGIN) {
-                        popUpTo(MarketRoutes.SPLASH) { inclusive = true }
-                    }
-                }
+                onLoginClick = { navController.navigate(MarketRoutes.LOGIN) }
             )
         }
 
@@ -112,7 +111,9 @@ fun MercadoVivoNavGraph(
         composable(MarketRoutes.HOME) {
             HomeScreen(
                 huariques = huariques,
+                userLocation = huariqueViewModel.userLocation,
                 isLoading = huariqueViewModel.isLoading,
+                isAdmin = authViewModel.isAdmin,
                 onOpenDetail = { id -> 
                     if (navController.currentDestination?.route?.contains("detail") != true) {
                         navController.navigate(MarketRoutes.detailRoute(id)) {
@@ -126,6 +127,12 @@ fun MercadoVivoNavGraph(
                             launchSingleTop = true
                         }
                     }
+                },
+                onRegisterLocal = {
+                    navController.navigate(MarketRoutes.adminEditRoute("new"))
+                },
+                onOpenAdminPanel = {
+                    navController.navigate(MarketRoutes.ADMIN_PANEL)
                 }
             )
         }
@@ -136,9 +143,13 @@ fun MercadoVivoNavGraph(
         ) { backStackEntry ->
             val id = backStackEntry.arguments?.getString("id").orEmpty()
             val huarique = huariqueViewModel.findById(id) ?: huariques.firstOrNull()
+            val scope = rememberCoroutineScope()
+            val repository = remember { com.mercadovivo.app.data.HuariqueRepository() }
+
             if (huarique != null) {
                 HuariqueDetailScreen(
                     huarique = huarique,
+                    isFavorite = authViewModel.userData?.favorites?.contains(huarique.id) ?: false,
                     onBack = { 
                         if (navController.currentDestination?.route?.contains("detail") == true) {
                             navController.popBackStack() 
@@ -163,6 +174,14 @@ fun MercadoVivoNavGraph(
                             navController.navigate(MarketRoutes.dishDetailRoute(huarique.id, dish.id)) {
                                 launchSingleTop = true
                             }
+                        }
+                    },
+                    onToggleFavorite = {
+                        authViewModel.toggleFavorite(huarique.id)
+                    },
+                    onAddReview = { review ->
+                        scope.launch {
+                            repository.saveReview(huarique.id, review)
                         }
                     }
                 )
@@ -218,10 +237,14 @@ fun MercadoVivoNavGraph(
                 DishDetailScreen(
                     huarique = huarique,
                     plato = dish,
+                    isFavorite = authViewModel.userData?.favoriteDishes?.contains(dish.id) ?: false,
                     onBack = { 
                         if (navController.currentDestination?.route?.contains("dish") == true) {
                             navController.popBackStack()
                         }
+                    },
+                    onToggleFavorite = {
+                        authViewModel.toggleDishFavorite(dish.id)
                     },
                     onWatchVideo = { 
                         navController.navigate(MarketRoutes.videoPrepRoute(id, dishId)) {
@@ -271,6 +294,7 @@ fun MercadoVivoNavGraph(
             val selectedId = backStackEntry.arguments?.getString("selectedId") ?: "all"
             MapScreen(
                 huariques = huariques,
+                huariqueViewModel = huariqueViewModel,
                 selectedId = selectedId,
                 onOpenDetail = { id -> navController.navigate(MarketRoutes.detailRoute(id)) },
                 onBack = { navController.popBackStack() }
@@ -279,8 +303,10 @@ fun MercadoVivoNavGraph(
 
         composable(MarketRoutes.FAVORITES) {
             FavoritesScreen(
-                favoriteHuariques = emptyList(),
-                onOpenDetail = { id -> navController.navigate(MarketRoutes.detailRoute(id)) }
+                huariqueViewModel = huariqueViewModel,
+                authViewModel = authViewModel,
+                onOpenDetail = { id -> navController.navigate(MarketRoutes.detailRoute(id)) },
+                onOpenDishDetail = { id, dishId -> navController.navigate(MarketRoutes.dishDetailRoute(id, dishId)) }
             )
         }
 
@@ -293,8 +319,9 @@ fun MercadoVivoNavGraph(
                 onNavigateToPrivacy = { navController.navigate(MarketRoutes.PRIVACY) },
                 onNavigateToHelp = { navController.navigate(MarketRoutes.HELP) },
                 onNavigateToAdmin = { navController.navigate(MarketRoutes.ADMIN_PANEL) },
+                onNavigateToRegisterLocal = { navController.navigate(MarketRoutes.adminEditRoute("new")) },
                 onLogout = {
-                    navController.navigate(MarketRoutes.LOGIN) {
+                    navController.navigate(MarketRoutes.SPLASH) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
@@ -310,12 +337,15 @@ fun MercadoVivoNavGraph(
 
         composable(MarketRoutes.ADDRESSES) {
             AddressesScreen(
+                huariqueViewModel = huariqueViewModel,
                 onBack = { navController.popBackStack() }
             )
         }
 
         composable(MarketRoutes.NOTIFICATIONS) {
             NotificationsScreen(
+                huariqueViewModel = huariqueViewModel,
+                authViewModel = authViewModel,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -343,13 +373,20 @@ fun MercadoVivoNavGraph(
 
         composable(
             route = MarketRoutes.ADMIN_EDIT,
-            arguments = listOf(navArgument("huariqueId") { type = NavType.StringType })
+            arguments = listOf(navArgument("huariqueId") { 
+                type = NavType.StringType
+                defaultValue = "new"
+            })
         ) { backStackEntry ->
-            val id = backStackEntry.arguments?.getString("huariqueId")
-            val huariqueToEdit = if (id != "new") huariqueViewModel.findById(id!!) else null
+            val id = backStackEntry.arguments?.getString("huariqueId") ?: "new"
+            val huariqueToEdit = if (id != "new") huariqueViewModel.findById(id) else null
+            
             AdminHuariqueEditScreen(
                 huarique = huariqueToEdit,
-                onBack = { navController.popBackStack() }
+                isAdmin = authViewModel.isAdmin,
+                onBack = { 
+                    navController.popBackStack()
+                }
             )
         }
     }

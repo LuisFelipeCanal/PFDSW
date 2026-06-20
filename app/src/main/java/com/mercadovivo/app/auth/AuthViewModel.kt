@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.firestore.FirebaseFirestore
+import com.mercadovivo.app.models.UserData
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -20,13 +21,26 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
     var isAdmin by mutableStateOf(false)
         private set
 
+    var userRole by mutableStateOf("USER")
+        private set
+
     var currentUser by mutableStateOf(repository.getCurrentUser())
+        private set
+
+    var userData by mutableStateOf<UserData?>(null)
         private set
 
     val userId get() = currentUser?.uid
 
     init {
         checkAdminStatus()
+        loadUserData()
+    }
+
+    private fun loadUserData() {
+        viewModelScope.launch {
+            userData = repository.getUserData()
+        }
     }
 
     private fun checkAdminStatus() {
@@ -38,9 +52,13 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
                     .document(uid)
                     .get()
                     .await()
-                isAdmin = doc.getBoolean("isAdmin") ?: false
+                
+                // Soporte para el campo antiguo isAdmin y el nuevo campo role
+                userRole = doc.getString("role") ?: "USER"
+                isAdmin = userRole == "ADMIN" || (doc.getBoolean("isAdmin") ?: false)
             } catch (e: Exception) {
                 isAdmin = false
+                userRole = "USER"
             }
         }
     }
@@ -53,6 +71,7 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
                 .onSuccess { 
                     currentUser = repository.getCurrentUser()
                     checkAdminStatus()
+                    loadUserData()
                     onSuccess() 
                 }
                 .onFailure { errorMessage = it.message ?: "Error desconocido" }
@@ -68,6 +87,7 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
                 .onSuccess { 
                     currentUser = repository.getCurrentUser()
                     checkAdminStatus()
+                    loadUserData()
                     onSuccess() 
                 }
                 .onFailure { errorMessage = it.message ?: "Error desconocido" }
@@ -90,10 +110,127 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
         return false
     }
 
+    fun exitAdminMode() {
+        isAdmin = false
+        // Opcional: Si queremos que persista que NO es admin en esta sesión
+        // incluso si en Firestore dice que sí, podríamos manejar una bandera extra.
+    }
+
     fun changePassword(current: String, new: String, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             val result = repository.changePassword(current, new)
             onResult(result)
+        }
+    }
+
+    fun updateProfile(name: String, phone: String, bio: String, photoUrl: String = "", onResult: (Result<Unit>) -> Unit) {
+        val uid = userId ?: return
+        viewModelScope.launch {
+            isLoading = true
+            try {
+                // 1. Subir imagen si es una URI local nueva
+                var finalPhotoUrl = photoUrl
+                if (photoUrl.startsWith("content://")) {
+                    finalPhotoUrl = repository.uploadProfileImage(android.net.Uri.parse(photoUrl))
+                }
+
+                // 2. Actualizar en Firebase Auth si el nombre cambió
+                if (name != currentUser?.displayName) {
+                    repository.updateDisplayName(name)
+                }
+
+                // 3. Actualizar o Crear en Firestore
+                val data = mutableMapOf(
+                    "displayName" to name,
+                    "phone" to phone,
+                    "bio" to bio
+                )
+                if (finalPhotoUrl.isNotEmpty()) {
+                    data["photoUrl"] = finalPhotoUrl
+                }
+
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uid)
+                    .set(data, com.google.firebase.firestore.SetOptions.merge())
+                    .await()
+                
+                currentUser = repository.getCurrentUser()
+                loadUserData() // Recargar datos locales
+                onResult(Result.success(Unit))
+            } catch (e: Exception) {
+                onResult(Result.failure(e))
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    fun togglePushNotifications(enabled: Boolean) {
+        val uid = userId ?: return
+        viewModelScope.launch {
+            try {
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uid)
+                    .update("pushNotificationsEnabled", enabled)
+                    .await()
+                loadUserData()
+            } catch (e: Exception) {
+                // Manejar error
+            }
+        }
+    }
+
+    fun markNotificationsAsRead() {
+        // ... (existing code)
+    }
+
+    fun toggleFavorite(huariqueId: String) {
+        val uid = userId ?: return
+        val currentFavorites = userData?.favorites?.toMutableList() ?: mutableListOf()
+        
+        if (currentFavorites.contains(huariqueId)) {
+            currentFavorites.remove(huariqueId)
+        } else {
+            currentFavorites.add(huariqueId)
+        }
+
+        viewModelScope.launch {
+            try {
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uid)
+                    .update("favorites", currentFavorites)
+                    .await()
+                loadUserData()
+            } catch (e: Exception) {
+                // Manejar error
+            }
+        }
+    }
+
+    fun toggleDishFavorite(dishId: String) {
+        val uid = userId ?: return
+        val currentFavorites = userData?.favoriteDishes?.toMutableList() ?: mutableListOf()
+        
+        if (currentFavorites.contains(dishId)) {
+            currentFavorites.remove(dishId)
+        } else {
+            currentFavorites.add(dishId)
+        }
+
+        viewModelScope.launch {
+            try {
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uid)
+                    .update("favoriteDishes", currentFavorites)
+                    .await()
+                loadUserData()
+            } catch (e: Exception) {
+                // Manejar error
+            }
         }
     }
 }

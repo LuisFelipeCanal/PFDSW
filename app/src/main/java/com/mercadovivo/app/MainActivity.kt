@@ -1,16 +1,25 @@
 package com.mercadovivo.app
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.maps.model.LatLng
 import com.mercadovivo.app.auth.AuthViewModel
 import com.mercadovivo.app.navigation.MarketRoutes
 import com.mercadovivo.app.navigation.MercadoVivoNavGraph
@@ -21,6 +30,7 @@ import com.mercadovivo.app.ui.theme.MercadoVivoTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
         setContent {
             MercadoVivoTheme {
                 MercadoVivoApp()
@@ -34,6 +44,44 @@ fun MercadoVivoApp() {
     val authViewModel: AuthViewModel = viewModel()
     val huariqueViewModel: HuariqueViewModel = viewModel()
     val navController = rememberNavController()
+    val context = LocalContext.current
+
+    // Gestión de ubicación y notificaciones
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        // Manejar resultados si es necesario
+    }
+
+    LaunchedEffect(Unit) {
+        val permissions = mutableListOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        
+        permissionLauncher.launch(permissions.toTypedArray())
+    }
+
+    // Actualizador de ubicación en tiempo real cuando está habilitada
+    LaunchedEffect(huariqueViewModel.isLocationEnabled) {
+        if (huariqueViewModel.isLocationEnabled) {
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+            try {
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    location?.let {
+                        huariqueViewModel.userLocation = LatLng(it.latitude, it.longitude)
+                    }
+                }
+            } catch (e: SecurityException) {
+                // Sin permisos
+            }
+        } else {
+            huariqueViewModel.userLocation = null
+        }
+    }
     
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
