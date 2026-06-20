@@ -183,7 +183,27 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
     }
 
     fun markNotificationsAsRead() {
-        // ... (existing code)
+        val uid = userId ?: return
+        val now = System.currentTimeMillis()
+        viewModelScope.launch {
+            try {
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uid)
+                    .update("lastNotificationsReadAt", now)
+                    .await()
+                loadUserData()
+            } catch (e: Exception) {
+                // Si falla porque el doc no existe, usamos set con merge
+                val data = mapOf("lastNotificationsReadAt" to now)
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uid)
+                    .set(data, com.google.firebase.firestore.SetOptions.merge())
+                    .await()
+                loadUserData()
+            }
+        }
     }
 
     fun toggleFavorite(huariqueId: String) {
