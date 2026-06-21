@@ -8,6 +8,7 @@ data class UserData(
     val bio: String = "",
     val photoUrl: String = "",
     val lastNotificationsReadAt: Long = 0,
+    val readNotificationIds: List<String> = emptyList(),
     val pushNotificationsEnabled: Boolean = true,
     val nearHuariqueNotificationsEnabled: Boolean = true,
     val favorites: List<String> = emptyList(),

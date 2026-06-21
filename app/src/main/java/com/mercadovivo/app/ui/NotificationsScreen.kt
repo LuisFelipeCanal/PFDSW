@@ -43,9 +43,10 @@ fun NotificationsScreen(
     val userLocation = huariqueViewModel.userLocation
     val userData = authViewModel.userData
     val lastReadAt = userData?.lastNotificationsReadAt ?: 0L
+    val readNotificationIds = userData?.readNotificationIds ?: emptyList()
 
     // Generamos notificaciones "reales" basadas en los huariques verificados
-    val notifications = remember(huariques, userLocation, lastReadAt) {
+    val notifications = remember(huariques, userLocation, lastReadAt, readNotificationIds) {
         huariques.filter { it.isVerified }.sortedByDescending { it.createdAt }.map { huarique ->
             var isUltraNear = false
             val distanceText = if (userLocation != null && huarique.lat != null && huarique.lng != null) {
@@ -60,22 +61,24 @@ fun NotificationsScreen(
             val timeStr = sdf.format(Date(huarique.createdAt))
 
             val isNewNotification = if (huarique.createdAt < 1000000000000L) {
-                // Si la fecha es muy antigua (como el año 2000 que pusimos)
-                // solo es nueva si nunca hemos pulsado "marcar como leído" (lastReadAt == 0)
                 lastReadAt == 0L
             } else {
-                // Si tiene fecha real (como Campollo), es nueva si es posterior a nuestra última lectura
                 huarique.createdAt > lastReadAt
             }
+            
+            val isActuallyNew = isNewNotification && 
+                                !readNotificationIds.contains(huarique.id) &&
+                                huarique.createdAt > (System.currentTimeMillis() - 172800000)
 
             NotificationData(
+                id = huarique.id,
                 title = if (isUltraNear) "¡Nuevo Huarique a la vuelta!" else "¡Nuevo Huarique abierto!",
                 content = if (isUltraNear) 
                     "${huarique.name} está a solo pasos de tu ubicación actual. ¡Ven a probar su sazón!" 
                     else "${huarique.name} ya está disponible $distanceText. ¡No te lo pierdas!",
                 time = timeStr,
                 icon = Icons.Default.Storefront,
-                isNew = isNewNotification && huarique.createdAt > (System.currentTimeMillis() - 172800000),
+                isNew = isActuallyNew,
                 iconColor = if (isUltraNear) Color(0xFF4CAF50) else Color(0xFFF9B36D)
             )
         }
@@ -152,7 +155,8 @@ fun NotificationsScreen(
         if (selectedTab == 0) {
             ActivityTab(
                 items = notifications,
-                onMarkAllAsRead = { authViewModel.markNotificationsAsRead() }
+                onMarkAllAsRead = { authViewModel.markNotificationsAsRead() },
+                onItemClick = { authViewModel.markNotificationAsRead(it) }
             )
         } else {
             ConfigTab(
@@ -166,7 +170,11 @@ fun NotificationsScreen(
 }
 
 @Composable
-fun ActivityTab(items: List<NotificationData>, onMarkAllAsRead: () -> Unit) {
+fun ActivityTab(
+    items: List<NotificationData>, 
+    onMarkAllAsRead: () -> Unit,
+    onItemClick: (String) -> Unit
+) {
     Column(modifier = Modifier.padding(24.dp)) {
         if (items.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -174,17 +182,36 @@ fun ActivityTab(items: List<NotificationData>, onMarkAllAsRead: () -> Unit) {
             }
         } else {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Text(
-                    text = "Marcar todo como leído", 
-                    color = Color(0xFFE27553), 
-                    fontSize = 12.sp,
-                    modifier = Modifier.clickable { onMarkAllAsRead() }
-                )
+                Surface(
+                    onClick = onMarkAllAsRead,
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFFFDEEE9),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.DoneAll,
+                            contentDescription = null,
+                            tint = Color(0xFFE27553),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Marcar todo como visto",
+                            color = Color(0xFFE27553),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(items) { data ->
-                    ActivityCard(data)
+                    ActivityCard(data, onClick = { onItemClick(data.id) })
                 }
                 item { Spacer(modifier = Modifier.height(100.dp)) }
             }
@@ -193,25 +220,39 @@ fun ActivityTab(items: List<NotificationData>, onMarkAllAsRead: () -> Unit) {
 }
 
 @Composable
-fun ActivityCard(data: NotificationData) {
+fun ActivityCard(data: NotificationData, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(
+            containerColor = if (data.isNew) Color(0xFFFFF7F2) else Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (data.isNew) 2.dp else 0.dp),
+        border = if (data.isNew) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDEEE9)) else null
     ) {
         Row(modifier = Modifier.padding(16.dp)) {
-            Surface(modifier = Modifier.size(40.dp), shape = CircleShape, color = data.iconColor.copy(alpha = 0.1f)) {
+            Surface(
+                modifier = Modifier.size(40.dp), 
+                shape = CircleShape, 
+                color = data.iconColor.copy(alpha = 0.1f)
+            ) {
                 Icon(data.icon, contentDescription = null, tint = data.iconColor, modifier = Modifier.padding(8.dp))
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(data.title, fontWeight = FontWeight.Bold, color = if(data.isNew) data.iconColor else Color.Black)
+                    Text(
+                        text = data.title, 
+                        fontWeight = if (data.isNew) FontWeight.Bold else FontWeight.Medium,
+                        color = if(data.isNew) Color(0xFFE27553) else Color.Black
+                    )
                     if (data.isNew) {
-                        Surface(modifier = Modifier.size(6.dp), shape = CircleShape, color = Color(0xFFD4183D)) {}
+                        Surface(modifier = Modifier.size(8.dp), shape = CircleShape, color = Color(0xFFD4183D)) {}
                     }
                 }
-                Text(data.content, fontSize = 12.sp, color = Color.Gray)
+                Text(data.content, fontSize = 12.sp, color = if (data.isNew) Color.Black else Color.Gray)
                 Text(data.time, fontSize = 10.sp, color = Color.LightGray)
             }
         }
@@ -264,4 +305,4 @@ fun ConfigItem(title: String, subtitle: String, initialValue: Boolean, onChecked
     }
 }
 
-data class NotificationData(val title: String, val content: String, val time: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val isNew: Boolean, val iconColor: Color)
+data class NotificationData(val id: String, val title: String, val content: String, val time: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val isNew: Boolean, val iconColor: Color)

@@ -226,6 +226,24 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
         }
     }
 
+    fun markNotificationAsRead(huariqueId: String) {
+        val uid = userId ?: return
+        val currentReadIds = userData?.readNotificationIds?.toMutableList() ?: mutableListOf()
+        if (!currentReadIds.contains(huariqueId)) {
+            currentReadIds.add(huariqueId)
+            viewModelScope.launch {
+                try {
+                    FirebaseFirestore.getInstance()
+                        .collection("users")
+                        .document(uid)
+                        .update("readNotificationIds", currentReadIds)
+                        .await()
+                    loadUserData()
+                } catch (e: Exception) { }
+            }
+        }
+    }
+
     fun recordVisit(huariqueId: String) {
         val uid = userId ?: return
         val currentVisits = userData?.visitedHuariques?.toMutableList() ?: mutableListOf()

@@ -27,7 +27,30 @@ fun MarketBottomNavigationBar(navController: NavController) {
         val currentRoute = navBackStackEntry?.destination?.route
 
         items.forEach { item ->
-            val isSelected = currentRoute == item.route
+            // Definimos qué rutas pertenecen a cada pestaña del menú
+            val isSelected = when (item.route) {
+                MarketRoutes.PROFILE -> {
+                    currentRoute == MarketRoutes.PROFILE || 
+                    currentRoute == MarketRoutes.ADMIN_PANEL ||
+                    currentRoute?.startsWith("admin_edit") == true ||
+                    currentRoute == MarketRoutes.EDIT_PROFILE ||
+                    currentRoute == MarketRoutes.NOTIFICATIONS ||
+                    currentRoute == MarketRoutes.ADDRESSES ||
+                    currentRoute == MarketRoutes.HELP
+                }
+                MarketRoutes.HOME -> {
+                    currentRoute == MarketRoutes.HOME ||
+                    currentRoute?.startsWith("detail") == true ||
+                    currentRoute?.startsWith("menu") == true
+                }
+                MarketRoutes.FAVORITES -> {
+                    currentRoute == MarketRoutes.FAVORITES ||
+                    currentRoute?.startsWith("dish") == true ||
+                    currentRoute?.startsWith("video") == true
+                }
+                else -> currentRoute?.startsWith(item.route.substringBefore("/")) == true
+            }
+            
             NavigationBarItem(
                 icon = { Icon(item.icon, contentDescription = item.title) },
                 label = { Text(item.title) },
@@ -40,14 +63,24 @@ fun MarketBottomNavigationBar(navController: NavController) {
                     indicatorColor = Color(0xFFFDEEE9)
                 ),
                 onClick = {
-                    navController.navigate(item.route) {
-                        popUpTo(MarketRoutes.HOME) {
-                            saveState = true
+                    if (isSelected && currentRoute != item.route) {
+                        // Si ya estamos en la pestaña pero en una sub-pantalla, volvemos a la raíz
+                        navController.navigate(item.route) {
+                            popUpTo(item.route) { inclusive = true }
+                            launchSingleTop = true
                         }
-                        launchSingleTop = true
-                        // Solo restauramos el estado si NO es la pestaña de Inicio
-                        // Esto asegura que Inicio siempre regrese a la vista principal limpia
-                        restoreState = item.route != MarketRoutes.HOME
+                    } else if (!isSelected) {
+                        // Si cambiamos de pestaña, vamos a la raíz de la nueva
+                        navController.navigate(item.route) {
+                            popUpTo(MarketRoutes.HOME) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            // Forzamos carga limpia para evitar el flote entre Detail y Mapa/Favoritos
+                            restoreState = item.route != MarketRoutes.HOME && 
+                                           !item.route.contains("map") && 
+                                           !item.route.contains("favorites")
+                        }
                     }
                 }
             )

@@ -45,6 +45,7 @@ fun AdminHuariqueEditScreen(
 ) {
     val repository = remember { HuariqueRepository() }
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     
     var name by remember { mutableStateOf(huarique?.name ?: "") }
     var description by remember { mutableStateOf(huarique?.description ?: "") }
@@ -60,20 +61,17 @@ fun AdminHuariqueEditScreen(
     var district by remember { mutableStateOf(huarique?.district ?: "") }
     var suggestedCategory by remember { mutableStateOf(huarique?.suggestedCategory ?: "") }
     
-    // Separamos el horario en apertura y cierre para mejor control
     var openTime by remember { mutableStateOf(huarique?.horario?.split("-")?.firstOrNull()?.trim() ?: "08:00 AM") }
     var closeTime by remember { mutableStateOf(huarique?.horario?.split("-")?.getOrNull(1)?.trim() ?: "06:00 PM") }
     
     var isVerified by remember { mutableStateOf(huarique?.isVerified ?: false) }
     var latLng by remember { mutableStateOf(LatLng(huarique?.lat ?: -12.1191, huarique?.lng ?: -77.0349)) }
     
-    // Categorías seleccionadas
     val availableCategories = listOf("Comida Criolla", "Cevicheria", "Parrillas", "Polleria", "Comida Selva", "Chifa", "Postres", "Jugueria", "Bebidas", "Pescados y Mariscos", "Sandwiches", "Caldos y Sopas")
     val selectedCategories = remember { mutableStateListOf<String>().apply { 
         if (huarique != null) addAll(huarique.categories) 
     } }
     
-    // Opciones para autocompletado de Tipo de Negocio
     val businessTypeOptions = listOf("Restaurante", "Puesto de Mercado", "Food Truck", "Carrito", "Huarique de Paso")
     var expandedByType by remember { mutableStateOf(false) }
 
@@ -85,10 +83,6 @@ fun AdminHuariqueEditScreen(
     val menuDesserts = remember { mutableStateListOf<com.mercadovivo.app.models.Plato>() }
     
     var isSaving by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
-    
-    // Bandera para evitar que actualizaciones externas (Firebase) 
-    // sobrescriban los cambios locales mientras estamos editando.
     val hasInitialized = remember { mutableStateOf(false) }
 
     LaunchedEffect(huarique) {
@@ -145,9 +139,7 @@ fun AdminHuariqueEditScreen(
                     Text(if (isAdmin) (if (huarique == null) "Nuevo Huarique" else "Editar Huarique") else "Inscribir mi Huarique") 
                 },
                 actions = {
-                    if (isSaving) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp).padding(end = 16.dp), color = Color.White, strokeWidth = 2.dp)
-                    } else {
+                    if (!isSaving) {
                         Button(onClick = {
                             isSaving = true
                             val finalHuarique = (huarique ?: Huarique()).copy(
@@ -177,10 +169,10 @@ fun AdminHuariqueEditScreen(
                             )
                             scope.launch {
                                 val result = repository.saveHuarique(finalHuarique, newPhotosUris.toList())
-                                isSaving = false
                                 if (result.isSuccess) {
                                     onBack()
                                 } else {
+                                    isSaving = false
                                     snackbarHostState.showSnackbar("Error al guardar: ${result.exceptionOrNull()?.message}")
                                 }
                             }
@@ -192,206 +184,237 @@ fun AdminHuariqueEditScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (!isAdmin) {
-                item {
-                    Surface(color = Color(0xFFFFEB3B), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        Text("¡Aprovecha! Solo un 10% de comisión para nuevos socios.", modifier = Modifier.padding(16.dp), fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            if (isAdmin && huarique != null) {
-                item {
-                    Card(colors = CardDefaults.cardColors(containerColor = if (isVerified) Color(0xFFE8F5E9) else Color(0xFFFFF3E0))) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(if (isVerified) "Estado: Verificado" else "Estado: Pendiente", fontWeight = FontWeight.Bold, color = if (isVerified) Color(0xFF2E7D32) else Color(0xFFE65100))
-                                Text("Visibilidad en la App", style = MaterialTheme.typography.bodySmall)
-                            }
-                            Switch(checked = isVerified, onCheckedChange = { isVerified = it })
-                        }
-                    }
-                }
-            }
-
-            item {
-                Text("Fotos del Local", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (!isAdmin) {
                     item {
-                        Surface(modifier = Modifier.size(100.dp).clickable { photoLauncher.launch("image/*") }, color = Color.LightGray.copy(alpha = 0.3f), shape = RoundedCornerShape(12.dp)) {
-                            Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.padding(32.dp), tint = Color.Gray)
-                        }
-                    }
-                    items(photos) { photo ->
-                        Box(modifier = Modifier.size(100.dp)) {
-                            AsyncImage(model = photo, contentDescription = null, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
-                            IconButton(onClick = { photos.remove(photo) }, modifier = Modifier.align(Alignment.TopEnd).size(24.dp).background(Color.White, CircleShape)) {
-                                Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    }
-                    items(newPhotosUris) { uri ->
-                        Box(modifier = Modifier.size(100.dp)) {
-                            AsyncImage(model = uri, contentDescription = null, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
-                            IconButton(onClick = { newPhotosUris.remove(uri) }, modifier = Modifier.align(Alignment.TopEnd).size(24.dp).background(Color.White, CircleShape)) {
-                                Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))
-                            }
+                        Surface(color = Color(0xFFFFEB3B), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            Text("¡Aprovecha! Solo un 10% de comisión para nuevos socios.", modifier = Modifier.padding(16.dp), fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-            }
 
-            item {
-                Text("Datos del Local", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre del Local *") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Descripción") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
-                
-                Text("Categorías *", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    availableCategories.forEach { category ->
-                        FilterChip(
-                            selected = selectedCategories.contains(category),
-                            onClick = {
-                                if (selectedCategories.contains(category)) selectedCategories.remove(category)
-                                else selectedCategories.add(category)
-                            },
-                            label = { Text(category) }
-                        )
-                    }
-                }
-                
-                OutlinedTextField(
-                    value = suggestedCategory, 
-                    onValueChange = { suggestedCategory = it }, 
-                    label = { Text("¿No ves tu categoría? Sugiérela aquí") },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Ej: Pescados y Mariscos") }
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Autocompletado para Tipo de Negocio
-                ExposedDropdownMenuBox(
-                    expanded = expandedByType,
-                    onExpandedChange = { expandedByType = !expandedByType }
-                ) {
-                    OutlinedTextField(
-                        value = businessType,
-                        onValueChange = { businessType = it },
-                        label = { Text("Tipo de negocio *") },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedByType) },
-                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedByType,
-                        onDismissRequest = { expandedByType = false }
-                    ) {
-                        businessTypeOptions.forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text(option) },
-                                onClick = {
-                                    businessType = option
-                                    expandedByType = false
+                if (isAdmin && huarique != null) {
+                    item {
+                        Card(colors = CardDefaults.cardColors(containerColor = if (isVerified) Color(0xFFE8F5E9) else Color(0xFFFFF3E0))) {
+                            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(if (isVerified) "Estado: Verificado" else "Estado: Pendiente", fontWeight = FontWeight.Bold, color = if (isVerified) Color(0xFF2E7D32) else Color(0xFFE65100))
+                                    Text("Visibilidad en la App", style = MaterialTheme.typography.bodySmall)
                                 }
+                                Switch(checked = isVerified, onCheckedChange = { isVerified = it })
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Text("Fotos del Local", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            Surface(modifier = Modifier.size(100.dp).clickable { photoLauncher.launch("image/*") }, color = Color.LightGray.copy(alpha = 0.3f), shape = RoundedCornerShape(12.dp)) {
+                                Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.padding(32.dp), tint = Color.Gray)
+                            }
+                        }
+                        items(photos) { photo ->
+                            Box(modifier = Modifier.size(100.dp)) {
+                                AsyncImage(model = photo, contentDescription = null, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
+                                IconButton(onClick = { photos.remove(photo) }, modifier = Modifier.align(Alignment.TopEnd).size(24.dp).background(Color.White, CircleShape)) {
+                                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                        items(newPhotosUris) { uri ->
+                            Box(modifier = Modifier.size(100.dp)) {
+                                AsyncImage(model = uri, contentDescription = null, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
+                                IconButton(onClick = { newPhotosUris.remove(uri) }, modifier = Modifier.align(Alignment.TopEnd).size(24.dp).background(Color.White, CircleShape)) {
+                                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Text("Datos del Local", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
+                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre del Local *") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Descripción") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                    
+                    Text("Categorías *", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availableCategories.forEach { category ->
+                            FilterChip(
+                                selected = selectedCategories.contains(category),
+                                onClick = {
+                                    if (selectedCategories.contains(category)) selectedCategories.remove(category)
+                                    else selectedCategories.add(category)
+                                },
+                                label = { Text(category) }
                             )
                         }
                     }
-                }
-                OutlinedTextField(value = branchesCount, onValueChange = { branchesCount = it }, label = { Text("Sucursales") }, modifier = Modifier.fillMaxWidth())
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("¿Es un local a la calle? *")
-                    RadioButton(selected = isStreetFront, onClick = { isStreetFront = true })
-                    Text("Sí")
-                    RadioButton(selected = !isStreetFront, onClick = { isStreetFront = false })
-                    Text("No")
-                }
-            }
+                    
+                    OutlinedTextField(
+                        value = suggestedCategory, 
+                        onValueChange = { suggestedCategory = it }, 
+                        label = { Text("¿No ves tu categoría? Sugiérela aquí") },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Ej: Pescados y Mariscos") }
+                    )
 
-            item {
-                Text("Datos del Propietario", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
-                OutlinedTextField(value = ownerFirstName, onValueChange = { ownerFirstName = it }, label = { Text("Nombre *") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = ownerLastName, onValueChange = { ownerLastName = it }, label = { Text("Apellido *") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email *") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = ownerPhone, onValueChange = { ownerPhone = it }, label = { Text("Teléfono *") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Teléfono del local *") }, modifier = Modifier.fillMaxWidth())
-            }
+                    Spacer(modifier = Modifier.height(8.dp))
 
-            item {
-                Text("Ubicación y Horario", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
-                OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Dirección *") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = district, onValueChange = { district = it }, label = { Text("Distrito") }, modifier = Modifier.fillMaxWidth())
+                    ExposedDropdownMenuBox(
+                        expanded = expandedByType,
+                        onExpandedChange = { expandedByType = !expandedByType }
+                    ) {
+                        OutlinedTextField(
+                            value = businessType,
+                            onValueChange = { businessType = it },
+                            label = { Text("Tipo de negocio *") },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedByType) },
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                            readOnly = true
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expandedByType,
+                            onDismissRequest = { expandedByType = false }
+                        ) {
+                            businessTypeOptions.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option) },
+                                    onClick = {
+                                        businessType = option
+                                        expandedByType = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    
+                    OutlinedTextField(value = branchesCount, onValueChange = { branchesCount = it }, label = { Text("Sucursales") }, modifier = Modifier.fillMaxWidth())
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("¿Es un local a la calle? *")
+                        RadioButton(selected = isStreetFront, onClick = { isStreetFront = true })
+                        Text("Sí")
+                        RadioButton(selected = !isStreetFront, onClick = { isStreetFront = false })
+                        Text("No")
+                    }
+                }
+
+                item {
+                    Text("Datos del Propietario", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
+                    OutlinedTextField(value = ownerFirstName, onValueChange = { ownerFirstName = it }, label = { Text("Nombre *") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = ownerLastName, onValueChange = { ownerLastName = it }, label = { Text("Apellido *") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email *") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = ownerPhone, onValueChange = { ownerPhone = it }, label = { Text("Teléfono *") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Teléfono del local *") }, modifier = Modifier.fillMaxWidth())
+                }
+
+                item {
+                    Text("Ubicación y Horario", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
+                    OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Dirección *") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = district, onValueChange = { district = it }, label = { Text("Distrito") }, modifier = Modifier.fillMaxWidth())
+                    
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = openTime, 
+                            onValueChange = { openTime = it }, 
+                            label = { Text("Apertura") }, 
+                            placeholder = { Text("08:00 AM") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = closeTime, 
+                            onValueChange = { closeTime = it }, 
+                            label = { Text("Cierre") }, 
+                            placeholder = { Text("06:00 PM") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Text("Formato sugerido: HH:MM AM/PM", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.padding(top = 4.dp))
+
+                    Box(modifier = Modifier.fillMaxWidth().height(200.dp).padding(top = 8.dp)) {
+                        GoogleMap(modifier = Modifier.fillMaxSize(), cameraPositionState = cameraPositionState, onMapClick = { latLng = it }) {
+                            Marker(state = MarkerState(position = latLng))
+                        }
+                    }
+                }
+
+                item {
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Platos", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
+                        IconButton(onClick = { menuPlates.add(com.mercadovivo.app.models.Plato(id = java.util.UUID.randomUUID().toString())) }) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                        }
+                    }
+                }
+                itemsIndexed(menuPlates) { index, plato ->
+                    MenuItemEditor(item = plato, onUpdate = { menuPlates[index] = it }, onDelete = { menuPlates.removeAt(index) })
+                }
+
+                item {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Bebidas", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
+                        IconButton(onClick = { menuBeverages.add(com.mercadovivo.app.models.Plato(id = java.util.UUID.randomUUID().toString(), category = "bebida")) }) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                        }
+                    }
+                }
+                itemsIndexed(menuBeverages) { index, bebida ->
+                    MenuItemEditor(item = bebida, onUpdate = { menuBeverages[index] = it }, onDelete = { menuBeverages.removeAt(index) })
+                }
+
+                item {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Postres", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
+                        IconButton(onClick = { menuDesserts.add(com.mercadovivo.app.models.Plato(id = java.util.UUID.randomUUID().toString(), category = "postre")) }) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                        }
+                    }
+                }
+                itemsIndexed(menuDesserts) { index, postre ->
+                    MenuItemEditor(item = postre, onUpdate = { menuDesserts[index] = it }, onDelete = { menuDesserts.removeAt(index) })
+                }
                 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = openTime, 
-                        onValueChange = { openTime = it }, 
-                        label = { Text("Apertura") }, 
-                        placeholder = { Text("08:00 AM") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = closeTime, 
-                        onValueChange = { closeTime = it }, 
-                        label = { Text("Cierre") }, 
-                        placeholder = { Text("06:00 PM") },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                Text("Formato sugerido: HH:MM AM/PM", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.padding(top = 4.dp))
+                item { Spacer(modifier = Modifier.height(40.dp)) }
+            }
 
-                Box(modifier = Modifier.fillMaxWidth().height(200.dp).padding(top = 8.dp)) {
-                    GoogleMap(modifier = Modifier.fillMaxSize(), cameraPositionState = cameraPositionState, onMapClick = { latLng = it }) {
-                        Marker(state = MarkerState(position = latLng))
+            // PANTALLA DE CARGA MODAL (BLOQUEANTE)
+            if (isSaving) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = Color.Black.copy(alpha = 0.6f)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(color = Color.White)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "Enviando información...", 
+                            color = Color.White, 
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Esto puede tardar unos segundos si hay fotos pesadas.", 
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
                     }
                 }
             }
-
-            item {
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Platos", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
-                    IconButton(onClick = { menuPlates.add(com.mercadovivo.app.models.Plato(id = java.util.UUID.randomUUID().toString())) }) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                    }
-                }
-            }
-            itemsIndexed(menuPlates) { index, plato ->
-                MenuItemEditor(item = plato, onUpdate = { menuPlates[index] = it }, onDelete = { menuPlates.removeAt(index) })
-            }
-
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Bebidas", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
-                    IconButton(onClick = { menuBeverages.add(com.mercadovivo.app.models.Plato(id = java.util.UUID.randomUUID().toString(), category = "bebida")) }) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                    }
-                }
-            }
-            itemsIndexed(menuBeverages) { index, bebida ->
-                MenuItemEditor(item = bebida, onUpdate = { menuBeverages[index] = it }, onDelete = { menuBeverages.removeAt(index) })
-            }
-
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Postres", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
-                    IconButton(onClick = { menuDesserts.add(com.mercadovivo.app.models.Plato(id = java.util.UUID.randomUUID().toString(), category = "postre")) }) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                    }
-                }
-            }
-            itemsIndexed(menuDesserts) { index, postre ->
-                MenuItemEditor(item = postre, onUpdate = { menuDesserts[index] = it }, onDelete = { menuDesserts.removeAt(index) })
-            }
-            
-            item { Spacer(modifier = Modifier.height(40.dp)) }
         }
     }
 }
