@@ -25,7 +25,7 @@ class HuariqueRepository {
     private val auth = FirebaseAuth.getInstance()
     private val collection = db.collection("huariques")
 
-    // Configuración de Dropbox con llaves protegidas (BuildConfig)
+    // Configuración de Dropbox protegida para GitHub
     private val APP_KEY = BuildConfig.DROPBOX_APP_KEY
     private val APP_SECRET = BuildConfig.DROPBOX_APP_SECRET
     private val REFRESH_TOKEN = BuildConfig.DROPBOX_REFRESH_TOKEN
@@ -96,11 +96,14 @@ class HuariqueRepository {
             result.links.firstOrNull()?.url ?: throw e
         }
         
-        // 3. Convertir a link de descarga directa
+        // 3. Convertir a link de descarga directa (FORMA INFALIBLE)
+        // Reemplazamos el dominio y nos aseguramos de que no existan parámetros de visualización
         sharedLinkUrl
             .replace("www.dropbox.com", "dl.dropboxusercontent.com")
             .replace("?dl=0", "")
+            .replace("&dl=0", "")
             .replace("?dl=1", "")
+            .replace("&dl=1", "")
     }
 
     suspend fun saveHuarique(

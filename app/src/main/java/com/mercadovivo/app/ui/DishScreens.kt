@@ -295,16 +295,23 @@ fun VideoPrepScreen(
     val context = LocalContext.current
     var isFullScreen by remember { mutableStateOf(false) }
     var isMuted by remember { mutableStateOf(false) }
+    var isVideoPortrait by remember { mutableStateOf(false) }
     
     val videoUrl = remember(plato.videoLabel) {
         if (plato.videoLabel.contains("dropbox.com")) {
-            plato.videoLabel.replace("www.dropbox.com", "dl.dropboxusercontent.com")
-                           .replace("?dl=0", "")
-                           .replace("?dl=1", "")
+            plato.videoLabel
+                .replace("www.dropbox.com", "dl.dropboxusercontent.com")
+                .replace("?dl=0", "")
+                .replace("&dl=0", "")
+                .replace("?dl=1", "")
+                .replace("&dl=1", "")
         } else {
             plato.videoLabel
         }
     }
+
+    var isLoading by remember { mutableStateOf(true) }
+    var hasError by remember { mutableStateOf(false) }
 
     val exoPlayer = remember(videoUrl) {
         ExoPlayer.Builder(context).build().apply {
@@ -313,18 +320,37 @@ fun VideoPrepScreen(
                 setMediaItem(mediaItem)
                 prepare()
                 playWhenReady = true
+                
+                addListener(object : androidx.media3.common.Player.Listener {
+                    override fun onPlaybackStateChanged(state: Int) {
+                        isLoading = (state == androidx.media3.common.Player.STATE_BUFFERING)
+                    }
+                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                        hasError = true
+                        isLoading = false
+                    }
+                    override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                        // Detectar si el video es vertical (alto > ancho)
+                        isVideoPortrait = videoSize.height > videoSize.width
+                    }
+                })
             }
         }
     }
 
-    // Manejo de Inmersión (Esconder barras del sistema)
+    // Manejo de Inmersión y Rotación Inteligente
     LaunchedEffect(isFullScreen) {
         val activity = context as? Activity ?: return@LaunchedEffect
         val window = activity.window
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         
         if (isFullScreen) {
-            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            // Si el video es vertical, mantenemos Portrait. Si es horizontal, forzamos Landscape.
+            activity.requestedOrientation = if (isVideoPortrait) 
+                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT 
+            else 
+                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+
             controller.hide(WindowInsetsCompat.Type.systemBars())
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
@@ -445,6 +471,29 @@ fun VideoBox(
     onMuteToggle: () -> Unit,
     onFullScreenToggle: () -> Unit
 ) {
+    // Inicializamos basándonos en el estado actual del player
+    var isLoading by remember { 
+        mutableStateOf(exoPlayer.playbackState != androidx.media3.common.Player.STATE_READY) 
+    }
+    var hasError by remember { mutableStateOf(false) }
+
+    // Escuchar el estado del player
+    DisposableEffect(exoPlayer) {
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                // Solo cargando si está en modo BUFFERING o IDLE (sin preparar)
+                isLoading = (state == androidx.media3.common.Player.STATE_BUFFERING || 
+                             state == androidx.media3.common.Player.STATE_IDLE)
+            }
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                hasError = true
+                isLoading = false
+            }
+        }
+        exoPlayer.addListener(listener)
+        onDispose { exoPlayer.removeListener(listener) }
+    }
+
     Box(modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(220.dp).background(Color.DarkGray, RoundedCornerShape(16.dp))) {
         if (videoUrl.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -460,7 +509,21 @@ fun VideoBox(
                 },
                 modifier = Modifier.fillMaxSize()
             )
+
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(40.dp).align(Alignment.Center),
+                    color = Color.White
+                )
+            }
+
+            if (hasError) {
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)), contentAlignment = Alignment.Center) {
+                    Text("Error al cargar video", color = Color.Red, fontSize = 12.sp)
+                }
+            }
             
+            // Controles personalizados (Mute, Fullscreen)
             Row(
                 modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
