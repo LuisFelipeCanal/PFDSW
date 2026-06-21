@@ -14,6 +14,24 @@ Proyecto Android en Kotlin (Jetpack Compose) para el curso de DSW.
 - `namespace` y `applicationId` alineados en `app/build.gradle.kts`.
 - Firebase configurado con `app/google-services.json`.
 
+## Versión 2.0 - Integración Dropbox & Optimización
+
+Esta versión incluye integración híbrida con **Dropbox API** para la gestión de videos de preparación y optimizaciones específicas para dispositivos de recursos limitados como el **Honor x6c**.
+
+### Configuración obligatoria (Post-clonado)
+
+Para que el proyecto compile y funcione correctamente, debes configurar los secretos locales que no se suben a GitHub:
+
+1. Crea o abre el archivo `local.properties` en la raíz del proyecto.
+2. Añade las siguientes claves de Dropbox (Solicítalas al administrador):
+   ```properties
+   DROPBOX_APP_KEY=tu_app_key_aqui
+   DROPBOX_APP_SECRET=tu_app_secret_aqui
+   DROPBOX_REFRESH_TOKEN=tu_refresh_token_aqui
+   ```
+3. Asegúrate de tener el archivo `app/google-services.json` de tu proyecto Firebase.
+4. Realiza un **Gradle Sync** en Android Studio.
+
 ## Comandos utiles
 
 ```powershell
