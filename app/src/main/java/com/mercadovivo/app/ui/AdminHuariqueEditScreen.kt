@@ -46,6 +46,7 @@ fun AdminHuariqueEditScreen(
     val repository = remember { HuariqueRepository() }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = androidx.compose.ui.platform.LocalContext.current
     
     var name by remember { mutableStateOf(huarique?.name ?: "") }
     var description by remember { mutableStateOf(huarique?.description ?: "") }
@@ -168,7 +169,7 @@ fun AdminHuariqueEditScreen(
                                 isVerified = if (isAdmin) isVerified else (huarique?.isVerified ?: false)
                             )
                             scope.launch {
-                                val result = repository.saveHuarique(finalHuarique, newPhotosUris.toList())
+                                val result = repository.saveHuarique(context, finalHuarique, newPhotosUris.toList())
                                 if (result.isSuccess) {
                                     onBack()
                                 } else {

@@ -11,10 +11,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,9 +24,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.mercadovivo.app.models.Huarique
 import com.mercadovivo.app.models.Plato
+import com.mercadovivo.app.ui.components.FullScreenImageDialog
 import com.mercadovivo.app.ui.theme.MercadoVivoGradientEnd
 import com.mercadovivo.app.ui.theme.MercadoVivoGradientStart
 
@@ -193,16 +198,23 @@ fun DishDetailScreen(
             Spacer(modifier = Modifier.height(12.dp))
             Text(plato.description, style = MaterialTheme.typography.bodyMedium)
 
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(
-                onClick = onWatchVideo,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE27553)),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Default.PlayCircle, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Ver video de preparación", fontWeight = FontWeight.Bold)
+            if (plato.videoLabel.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = onWatchVideo,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE27553)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.PlayCircle, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    val buttonText = when(plato.category.lowercase()) {
+                        "bebida" -> "Ver receta de la bebida"
+                        "postre" -> "Ver cómo se sirve este dulce"
+                        else -> "Ver video de preparación"
+                    }
+                    Text(buttonText, fontWeight = FontWeight.Bold)
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -212,7 +224,6 @@ fun DishDetailScreen(
             Text("Ingredientes visibles", fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Grid de ingredientes
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val chunks = plato.ingredients.chunked(2)
                 chunks.forEach { rowIngredients ->
@@ -266,6 +277,35 @@ fun VideoPrepScreen(
     plato: Plato,
     onBack: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    val videoUrl = remember(plato.videoLabel) {
+        if (plato.videoLabel.contains("dropbox.com")) {
+            plato.videoLabel.replace("www.dropbox.com", "dl.dropboxusercontent.com")
+                           .replace("?dl=0", "")
+                           .replace("?dl=1", "")
+        } else {
+            plato.videoLabel
+        }
+    }
+
+    val exoPlayer = remember(videoUrl) {
+        ExoPlayer.Builder(context).build().apply {
+            if (videoUrl.isNotEmpty()) {
+                val mediaItem = MediaItem.fromUri(videoUrl)
+                setMediaItem(mediaItem)
+                prepare()
+                playWhenReady = true
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            exoPlayer.release()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -278,7 +318,13 @@ fun VideoPrepScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize().background(Color.Black).verticalScroll(rememberScrollState())) {
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .background(Color.Black)
+                .verticalScroll(rememberScrollState())
+        ) {
             // Header Card
             Card(
                 modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -291,32 +337,22 @@ fun VideoPrepScreen(
                 }
             }
 
-            // Video Player Mock
-            Box(modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(220.dp)) {
-                AsyncImage(
-                    model = if(plato.photoLabel.isNotEmpty()) plato.photoLabel else "https://placeholder.com/400",
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize().background(Color.DarkGray, RoundedCornerShape(16.dp)),
-                    contentScale = ContentScale.Crop,
-                    alpha = 0.6f
-                )
-                Surface(
-                    modifier = Modifier.align(Alignment.Center).size(64.dp),
-                    shape = CircleShape,
-                    color = Color(0xFFE27553)
-                ) {
-                    Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.padding(12.dp), tint = Color.White)
-                }
-                // Video controls mock
-                Surface(
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp).fillMaxWidth(),
-                    color = Color.Transparent
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("0:45 / 2:30", color = Color.White, fontSize = 12.sp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        LinearProgressIndicator(progress = 0.3f, modifier = Modifier.weight(1f), color = Color(0xFFE27553))
+            // REPRODUCTOR DE VIDEO REAL
+            Box(modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(220.dp).background(Color.DarkGray, RoundedCornerShape(16.dp))) {
+                if (videoUrl.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Video no disponible", color = Color.Gray)
                     }
+                } else {
+                    AndroidView(
+                        factory = { ctx ->
+                            PlayerView(ctx).apply {
+                                player = exoPlayer
+                                useController = true
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
             }
 
@@ -389,6 +425,7 @@ fun VideoPrepScreen(
                    }
                 }
             }
+            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 }

@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storefront
@@ -29,7 +28,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.google.android.gms.maps.model.LatLng
 import com.mercadovivo.app.models.Huarique
-import com.mercadovivo.app.ui.components.MarketBottomNavigationBar
 import com.mercadovivo.app.ui.theme.MercadoVivoGradientEnd
 import com.mercadovivo.app.ui.theme.MercadoVivoGradientStart
 
@@ -52,7 +50,6 @@ fun HomeScreen(
 
     val pullRefreshState = rememberPullToRefreshState()
     
-    // Sincronizar el estado de carga del ViewModel con el del PullToRefresh
     LaunchedEffect(isLoading) {
         if (!isLoading) pullRefreshState.endRefresh()
     }
@@ -63,7 +60,6 @@ fun HomeScreen(
         }
     }
 
-    // Lógica de filtrado avanzada (Búsqueda + Categoría)
     val filteredHuariques = remember(huariques, searchQuery, selectedCategory) {
         huariques.filter { huarique ->
             val matchesVerified = huarique.isVerified
@@ -88,7 +84,6 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(Color(0xFFFFFBF0))
         ) {
-            // Header con Barra de Búsqueda Real
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -101,17 +96,8 @@ fun HomeScreen(
                     .padding(horizontal = 24.dp, vertical = 32.dp)
             ) {
                 Column {
-                    Text(
-                        text = "MercadoVivo",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Descubre los mejores huariques cerca de ti",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.9f)
-                    )
+                    Text(text = "MercadoVivo", style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(text = "Descubre los mejores huariques cerca de ti", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.9f))
                     Spacer(modifier = Modifier.height(24.dp))
                     TextField(
                         value = searchQuery,
@@ -137,9 +123,7 @@ fun HomeScreen(
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 24.dp),
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     item {
@@ -169,21 +153,12 @@ fun HomeScreen(
                     item {
                         Spacer(modifier = Modifier.height(12.dp))
                         Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onOpenMap("all") },
+                            modifier = Modifier.fillMaxWidth().clickable { onOpenMap("all") },
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = Color.White)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    modifier = Modifier.size(40.dp),
-                                    shape = RoundedCornerShape(20.dp),
-                                    color = Color(0xFFFDEEE9)
-                                ) {
+                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Surface(modifier = Modifier.size(40.dp), shape = RoundedCornerShape(20.dp), color = Color(0xFFFDEEE9)) {
                                     Icon(Icons.Default.Place, contentDescription = null, tint = Color(0xFFE27553), modifier = Modifier.padding(8.dp))
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
@@ -199,42 +174,18 @@ fun HomeScreen(
                         item {
                             Spacer(modifier = Modifier.height(12.dp))
                             Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onRegisterLocal() },
+                                modifier = Modifier.fillMaxWidth().clickable { onRegisterLocal() },
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Surface(
-                                        modifier = Modifier.size(32.dp),
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = Color(0xFFFDEEE9)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Storefront,
-                                            contentDescription = null,
-                                            tint = Color(0xFFE27553),
-                                            modifier = Modifier.padding(4.dp)
-                                        )
+                                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(modifier = Modifier.size(32.dp), shape = RoundedCornerShape(8.dp), color = Color(0xFFFDEEE9)) {
+                                        Icon(Icons.Default.Storefront, contentDescription = null, tint = Color(0xFFE27553), modifier = Modifier.padding(4.dp))
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
-                                        Text(
-                                            "Registra tu local",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp,
-                                            color = Color(0xFFE27553)
-                                        )
-                                        Text(
-                                            "¿Eres dueño? Únete",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Color.Gray,
-                                            fontSize = 10.sp
-                                        )
+                                        Text("Registra tu local", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFFE27553))
+                                        Text("¿Eres dueño? Únete", style = MaterialTheme.typography.bodySmall, color = Color.Gray, fontSize = 10.sp)
                                     }
                                 }
                             }
@@ -249,18 +200,13 @@ fun HomeScreen(
                         }
                     }
 
-                    // Aplicar lógica de cercanía sobre los resultados ya filtrados por búsqueda
                     val nearHuariques = if (userLocation != null) {
                         filteredHuariques.map { huarique ->
                             val distance = if (huarique.lat != null && huarique.lng != null) {
-                                com.mercadovivo.app.utils.LocationUtils.calculateDistance(
-                                    userLocation, 
-                                    LatLng(huarique.lat, huarique.lng)
-                                )
+                                com.mercadovivo.app.utils.LocationUtils.calculateDistance(userLocation, LatLng(huarique.lat, huarique.lng))
                             } else Float.MAX_VALUE
                             huarique to distance
-                        }.sortedBy { it.second }
-                         .map { it.first }
+                        }.sortedBy { it.second }.map { it.first }
                     } else {
                         filteredHuariques
                     }
@@ -272,12 +218,8 @@ fun HomeScreen(
                             }
                         }
                     } else {
-                        items(nearHuariques) { huarique ->
-                            HuariqueCardHome(
-                                huarique = huarique, 
-                                userLocation = userLocation,
-                                onClick = { onOpenDetail(huarique.id) }
-                            )
+                        items(items = nearHuariques, key = { it.id }) { huarique ->
+                            HuariqueCardHome(huarique = huarique, userLocation = userLocation, onClick = { onOpenDetail(huarique.id) })
                         }
                     }
                     
@@ -303,20 +245,19 @@ fun HuariqueCardHome(
 ) {
     val distanceText = remember(huarique, userLocation) {
         if (userLocation != null && huarique.lat != null && huarique.lng != null) {
-            val meters = com.mercadovivo.app.utils.LocationUtils.calculateDistance(
-                userLocation,
-                LatLng(huarique.lat, huarique.lng)
-            )
+            val meters = com.mercadovivo.app.utils.LocationUtils.calculateDistance(userLocation, LatLng(huarique.lat, huarique.lng))
             com.mercadovivo.app.utils.LocationUtils.formatDistance(meters)
         } else {
             "--- m"
         }
     }
+    
+    val isOpen = remember(huarique.horario) {
+        com.mercadovivo.app.utils.TimeUtils.isStoreOpen(huarique.horario)
+    }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -324,25 +265,24 @@ fun HuariqueCardHome(
         Column {
             Box(modifier = Modifier.fillMaxWidth().height(160.dp)) {
                 AsyncImage(
-                    model = if (huarique.photos.isNotEmpty()) huarique.photos.first() else "https://placeholder.com/400",
+                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                        .data(if (huarique.photos.isNotEmpty()) huarique.photos.first() else "https://placeholder.com/400")
+                        .crossfade(300)
+                        .size(512, 384) // TAMAÑO ÓPTIMO: Vuela en Honor y se ve nítido en gama alta
+                        .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                        .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                        .build(),
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
-                
-                val isOpen = com.mercadovivo.app.utils.TimeUtils.isStoreOpen(huarique.horario)
                 
                 Surface(
                     modifier = Modifier.padding(12.dp).align(Alignment.TopStart),
                     shape = RoundedCornerShape(8.dp),
                     color = if (isOpen) Color(0xFF4CAF50) else Color.Gray
                 ) {
-                    Text(
-                        if (isOpen) "Abierto" else "Cerrado", 
-                        color = Color.White, 
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), 
-                        fontSize = 12.sp
-                    )
+                    Text(if (isOpen) "Abierto" else "Cerrado", color = Color.White, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 12.sp)
                 }
                 
                 Surface(
@@ -354,15 +294,10 @@ fun HuariqueCardHome(
                         val currentRating = huarique.rating ?: 0.0
                         Text(text = "⭐", fontSize = 10.sp)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if(currentRating > 0) currentRating.toString() else "0.0",
-                            fontWeight = FontWeight.Bold, 
-                            fontSize = 12.sp,
-                            color = Color.Black
-                        )
+                        Text(text = if(currentRating > 0) currentRating.toString() else "0.0", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
                     }
                 }
-  }
+            }
             
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(text = huarique.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)

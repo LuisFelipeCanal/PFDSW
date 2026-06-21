@@ -26,32 +26,42 @@ class HuariqueRepository {
         awaitClose { subscription.remove() }
     }
 
-    suspend fun uploadImage(imageUri: Uri): String {
+    suspend fun uploadImage(context: android.content.Context, imageUri: Uri): String {
         val fileName = UUID.randomUUID().toString()
         val ref = storage.reference.child("huariques_photos/$fileName")
-        ref.putFile(imageUri).await()
+        
+        // COMPRESIÓN DE IMAGEN ANTES DE SUBIR
+        val inputStream = context.contentResolver.openInputStream(imageUri)
+        val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+        val baos = java.io.ByteArrayOutputStream()
+        
+        // Reducimos la calidad al 70% para que pese poco pero se vea bien
+        bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, baos)
+        val data = baos.toByteArray()
+        
+        ref.putBytes(data).await()
         return ref.downloadUrl.await().toString()
     }
 
-    suspend fun saveHuarique(huarique: Huarique, imageUris: List<Uri> = emptyList()): Result<String> {
+    suspend fun saveHuarique(context: android.content.Context, huarique: Huarique, imageUris: List<Uri> = emptyList()): Result<String> {
         return try {
-            // 1. Subir fotos generales del local
-            val uploadedPhotoUrls = imageUris.map { uploadImage(it) }
+            // 1. Subir fotos generales del local comprimidas
+            val uploadedPhotoUrls = imageUris.map { uploadImage(context, it) }
             
-            // 2. Subir fotos individuales de cada plato/bebida/postre si tienen URIs locales
+            // 2. Subir fotos individuales de cada plato/bebida/postre comprimidas
             val updatedPlates = huarique.menuPlates.map { plate ->
                 if (plate.photoLabel.startsWith("content://")) {
-                    plate.copy(photoLabel = uploadImage(Uri.parse(plate.photoLabel)))
+                    plate.copy(photoLabel = uploadImage(context, Uri.parse(plate.photoLabel)))
                 } else plate
             }
             val updatedBeverages = huarique.menuBeverages.map { bev ->
                 if (bev.photoLabel.startsWith("content://")) {
-                    bev.copy(photoLabel = uploadImage(Uri.parse(bev.photoLabel)))
+                    bev.copy(photoLabel = uploadImage(context, Uri.parse(bev.photoLabel)))
                 } else bev
             }
             val updatedDesserts = huarique.menuDesserts.map { des ->
                 if (des.photoLabel.startsWith("content://")) {
-                    des.copy(photoLabel = uploadImage(Uri.parse(des.photoLabel)))
+                    des.copy(photoLabel = uploadImage(context, Uri.parse(des.photoLabel)))
                 } else des
             }
 
