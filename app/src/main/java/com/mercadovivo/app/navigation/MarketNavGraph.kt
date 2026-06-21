@@ -53,6 +53,7 @@ fun MercadoVivoNavGraph(
     authViewModel: AuthViewModel,
     huariqueViewModel: HuariqueViewModel,
     navController: NavHostController,
+    onRefresh: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val huariques = huariqueViewModel.huariques
@@ -115,6 +116,7 @@ fun MercadoVivoNavGraph(
                 userLocation = huariqueViewModel.userLocation,
                 isLoading = huariqueViewModel.isLoading,
                 isAdmin = authViewModel.isAdmin,
+                onRefresh = onRefresh,
                 onOpenDetail = { id -> 
                     if (navController.currentDestination?.route?.contains("detail") != true) {
                         navController.navigate(MarketRoutes.detailRoute(id)) {

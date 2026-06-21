@@ -14,11 +14,14 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,6 +40,7 @@ fun HomeScreen(
     userLocation: LatLng? = null,
     isLoading: Boolean = false,
     isAdmin: Boolean = false,
+    onRefresh: () -> Unit = {},
     onOpenDetail: (String) -> Unit,
     onOpenMap: (String) -> Unit,
     onRegisterLocal: () -> Unit,
@@ -45,6 +49,19 @@ fun HomeScreen(
     var searchQuery by remember { mutableStateOf("") }
     val categories = listOf("Todos", "Comida Criolla", "Cevicheria", "Parrillas", "Polleria", "Comida Selva", "Chifa", "Postres", "Jugueria", "Bebidas", "Pescados y Mariscos", "Sandwiches", "Caldos y Sopas")
     var selectedCategory by remember { mutableStateOf("Todos") }
+
+    val pullRefreshState = rememberPullToRefreshState()
+    
+    // Sincronizar el estado de carga del ViewModel con el del PullToRefresh
+    LaunchedEffect(isLoading) {
+        if (!isLoading) pullRefreshState.endRefresh()
+    }
+
+    if (pullRefreshState.isRefreshing) {
+        LaunchedEffect(true) {
+            onRefresh()
+        }
+    }
 
     // Lógica de filtrado avanzada (Búsqueda + Categoría)
     val filteredHuariques = remember(huariques, searchQuery, selectedCategory) {
@@ -65,207 +82,216 @@ fun HomeScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFFFFBF0))
-    ) {
-        // Header con Barra de Búsqueda Real
-        Box(
+    Box(modifier = Modifier.fillMaxSize().nestedScroll(pullRefreshState.nestedScrollConnection)) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(MercadoVivoGradientStart, MercadoVivoGradientEnd)
-                    ),
-                    shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
-                )
-                .padding(horizontal = 24.dp, vertical = 32.dp)
+                .fillMaxSize()
+                .background(Color(0xFFFFFBF0))
         ) {
-            Column {
-                Text(
-                    text = "MercadoVivo",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Descubre los mejores huariques cerca de ti",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.9f)
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                TextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Buscar huariques, platos...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    shape = RoundedCornerShape(24.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        disabledContainerColor = Color.White,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    )
-                )
-            }
-        }
-
-        if (isLoading && huariques.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color(0xFFE27553))
-            }
-        } else {
-            LazyColumn(
+            // Header con Barra de Búsqueda Real
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                    .fillMaxWidth()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(MercadoVivoGradientStart, MercadoVivoGradientEnd)
+                        ),
+                        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
+                    )
+                    .padding(horizontal = 24.dp, vertical = 32.dp)
             ) {
-                item {
+                Column {
+                    Text(
+                        text = "MercadoVivo",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Descubre los mejores huariques cerca de ti",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.9f)
+                    )
                     Spacer(modifier = Modifier.height(24.dp))
-                    Text("Categorías", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        categories.forEach { category ->
-                            val isSelected = selectedCategory == category
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedCategory = category },
-                                label = { Text(category) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFE27553),
-                                    selectedLabelColor = Color.White
-                                ),
-                                shape = RoundedCornerShape(20.dp)
-                            )
-                        }
-                    }
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Buscar huariques, platos...") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        shape = RoundedCornerShape(24.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            disabledContainerColor = Color.White,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        )
+                    )
                 }
+            }
 
-                item {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpenMap("all") },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
-                    ) {
+            if (isLoading && huariques.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFFE27553))
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    item {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text("Categorías", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Spacer(modifier = Modifier.height(12.dp))
                         Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Surface(
-                                modifier = Modifier.size(40.dp),
-                                shape = RoundedCornerShape(20.dp),
-                                color = Color(0xFFFDEEE9)
-                            ) {
-                                Icon(Icons.Default.Place, contentDescription = null, tint = Color(0xFFE27553), modifier = Modifier.padding(8.dp))
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text("Ver en mapa", fontWeight = FontWeight.Bold)
-                                Text("Explora huariques cercanos", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                            categories.forEach { category ->
+                                val isSelected = selectedCategory == category
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { selectedCategory = category },
+                                    label = { Text(category) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFFE27553),
+                                        selectedLabelColor = Color.White
+                                    ),
+                                    shape = RoundedCornerShape(20.dp)
+                                )
                             }
                         }
                     }
-                }
 
-                if (!isAdmin) {
                     item {
                         Spacer(modifier = Modifier.height(12.dp))
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onRegisterLocal() },
+                                .clickable { onOpenMap("all") },
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
+                            colors = CardDefaults.cardColors(containerColor = Color.White)
                         ) {
                             Row(
                                 modifier = Modifier.padding(16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Surface(
-                                    modifier = Modifier.size(32.dp),
-                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.size(40.dp),
+                                    shape = RoundedCornerShape(20.dp),
                                     color = Color(0xFFFDEEE9)
                                 ) {
-                                    Icon(
-                                        Icons.Default.Storefront,
-                                        contentDescription = null,
-                                        tint = Color(0xFFE27553),
-                                        modifier = Modifier.padding(4.dp)
-                                    )
+                                    Icon(Icons.Default.Place, contentDescription = null, tint = Color(0xFFE27553), modifier = Modifier.padding(8.dp))
                                 }
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.width(16.dp))
                                 Column {
-                                    Text(
-                                        "Registra tu local",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = Color(0xFFE27553)
-                                    )
-                                    Text(
-                                        "¿Eres dueño? Únete",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color.Gray,
-                                        fontSize = 10.sp
-                                    )
+                                    Text("Ver en mapa", fontWeight = FontWeight.Bold)
+                                    Text("Explora huariques cercanos", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                                 }
                             }
                         }
                     }
-                }
 
-                item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("📈", fontSize = 16.sp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (searchQuery.isEmpty() && selectedCategory == "Todos") "Populares cerca de ti" else "Resultados de búsqueda", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    }
-                }
-
-                // Aplicar lógica de cercanía sobre los resultados ya filtrados por búsqueda
-                val nearHuariques = if (userLocation != null) {
-                    filteredHuariques.map { huarique ->
-                        val distance = if (huarique.lat != null && huarique.lng != null) {
-                            com.mercadovivo.app.utils.LocationUtils.calculateDistance(
-                                userLocation, 
-                                LatLng(huarique.lat, huarique.lng)
-                            )
-                        } else Float.MAX_VALUE
-                        huarique to distance
-                    }.sortedBy { it.second }
-                     .map { it.first }
-                } else {
-                    filteredHuariques
-                }
-
-                if (nearHuariques.isEmpty()) {
-                    item {
-                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text("No se encontraron resultados", color = Color.Gray)
+                    if (!isAdmin) {
+                        item {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onRegisterLocal() },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        modifier = Modifier.size(32.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = Color(0xFFFDEEE9)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Storefront,
+                                            contentDescription = null,
+                                            tint = Color(0xFFE27553),
+                                            modifier = Modifier.padding(4.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            "Registra tu local",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Color(0xFFE27553)
+                                        )
+                                        Text(
+                                            "¿Eres dueño? Únete",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color.Gray,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
-                } else {
-                    items(nearHuariques) { huarique ->
-                        HuariqueCardHome(
-                            huarique = huarique, 
-                            userLocation = userLocation,
-                            onClick = { onOpenDetail(huarique.id) }
-                        )
+
+                    item {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("📈", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (searchQuery.isEmpty() && selectedCategory == "Todos") "Populares cerca de ti" else "Resultados de búsqueda", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        }
                     }
+
+                    // Aplicar lógica de cercanía sobre los resultados ya filtrados por búsqueda
+                    val nearHuariques = if (userLocation != null) {
+                        filteredHuariques.map { huarique ->
+                            val distance = if (huarique.lat != null && huarique.lng != null) {
+                                com.mercadovivo.app.utils.LocationUtils.calculateDistance(
+                                    userLocation, 
+                                    LatLng(huarique.lat, huarique.lng)
+                                )
+                            } else Float.MAX_VALUE
+                            huarique to distance
+                        }.sortedBy { it.second }
+                         .map { it.first }
+                    } else {
+                        filteredHuariques
+                    }
+
+                    if (nearHuariques.isEmpty()) {
+                        item {
+                            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                                Text("No se encontraron resultados", color = Color.Gray)
+                            }
+                        }
+                    } else {
+                        items(nearHuariques) { huarique ->
+                            HuariqueCardHome(
+                                huarique = huarique, 
+                                userLocation = userLocation,
+                                onClick = { onOpenDetail(huarique.id) }
+                            )
+                        }
+                    }
+                    
+                    item { Spacer(modifier = Modifier.height(80.dp)) }
                 }
-                
-                item { Spacer(modifier = Modifier.height(80.dp)) }
             }
         }
+
+        PullToRefreshContainer(
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter),
+            containerColor = Color.White,
+            contentColor = Color(0xFFE27553)
+        )
     }
 }
 

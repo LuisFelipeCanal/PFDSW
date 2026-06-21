@@ -37,6 +37,10 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
         loadUserData()
     }
 
+    fun refresh() {
+        loadUserData()
+    }
+
     private fun loadUserData() {
         viewModelScope.launch {
             userData = repository.getUserData()
@@ -79,11 +83,11 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
         }
     }
 
-    fun register(email: String, password: String, displayName: String, onSuccess: () -> Unit) {
+    fun register(email: String, password: String, displayName: String, phone: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             isLoading = true
             errorMessage = null
-            repository.register(email, password, displayName)
+            repository.register(email, password, displayName, phone)
                 .onSuccess { 
                     currentUser = repository.getCurrentUser()
                     checkAdminStatus()

@@ -73,12 +73,23 @@ fun MapScreen(
     }
 
     val focusedHuarique = verifiedHuariques.find { it.id == currentFocusedId }
-    val initialPos = LatLng(focusedHuarique?.lat ?: -12.1191, focusedHuarique?.lng ?: -77.0349)
+    
+    // Posición inicial inteligente (Prioriza selección > Ubicación > Default)
+    val initialPos = remember {
+        if (focusedHuarique != null) {
+            LatLng(focusedHuarique.lat ?: -12.1191, focusedHuarique.lng ?: -77.0349)
+        } else if (userLocation != null) {
+            userLocation
+        } else {
+            LatLng(-12.1191, -77.0349)
+        }
+    }
+
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(initialPos, 15f)
     }
 
-    // Efecto para centrar el mapa cuando cambia el foco
+    // Efecto para centrar el mapa cuando cambia el foco (selección de restaurante)
     LaunchedEffect(currentFocusedId) {
         val target = verifiedHuariques.find { it.id == currentFocusedId }
         target?.let {
@@ -87,6 +98,15 @@ fun MapScreen(
                     CameraUpdateFactory.newLatLngZoom(LatLng(it.lat, it.lng), 17f)
                 )
             }
+        }
+    }
+
+    // EFECTO: Centrar en el usuario al abrir el mapa si no hay nada seleccionado
+    LaunchedEffect(userLocation) {
+        if (currentFocusedId.isEmpty() && userLocation != null && isLocationEnabled) {
+            cameraPositionState.animate(
+                CameraUpdateFactory.newLatLngZoom(userLocation, 15f)
+            )
         }
     }
 

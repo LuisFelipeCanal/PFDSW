@@ -10,7 +10,7 @@ class AuthRepository {
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
 
-    suspend fun register(email: String, password: String, displayName: String): Result<String> {
+    suspend fun register(email: String, password: String, displayName: String, phone: String): Result<String> {
         return try {
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val user = result.user ?: throw Exception("Error al crear usuario")
@@ -20,6 +20,7 @@ class AuthRepository {
                 uid = user.uid,
                 email = email,
                 displayName = displayName,
+                phone = phone,
                 role = "USER"
             )
             db.collection("users").document(user.uid).set(userData).await()

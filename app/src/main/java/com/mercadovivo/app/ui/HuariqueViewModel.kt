@@ -30,6 +30,10 @@ class HuariqueViewModel(private val repository: HuariqueRepository = HuariqueRep
         loadHuariques()
     }
 
+    fun refresh() {
+        loadHuariques()
+    }
+
     private fun loadHuariques() {
         viewModelScope.launch {
             isLoading = true

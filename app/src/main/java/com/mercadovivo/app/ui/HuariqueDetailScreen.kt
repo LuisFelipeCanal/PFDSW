@@ -2,6 +2,7 @@ package com.mercadovivo.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -133,7 +134,10 @@ fun HuariqueDetailScreen(
             
             if (huarique.categories.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), 
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     huarique.categories.forEach { category ->
                         com.mercadovivo.app.ui.components.CategoryPill(label = category)
                     }

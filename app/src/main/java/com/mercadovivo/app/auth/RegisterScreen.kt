@@ -132,7 +132,7 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
-                onClick = { viewModel.register(email.trim(), password, name, onRegisterSuccess) },
+                onClick = { viewModel.register(email.trim(), password, name, phone, onRegisterSuccess) },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE27553)),
                 shape = RoundedCornerShape(16.dp),
