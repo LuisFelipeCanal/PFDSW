@@ -175,36 +175,43 @@ fun ActivityTab(
     onMarkAllAsRead: () -> Unit,
     onItemClick: (String) -> Unit
 ) {
+    val hasUnread = items.any { it.isNew }
+
     Column(modifier = Modifier.padding(24.dp)) {
         if (items.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No hay notificaciones recientes", color = Color.Gray)
             }
         } else {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Surface(
-                    onClick = onMarkAllAsRead,
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFFFDEEE9),
-                    modifier = Modifier.padding(bottom = 8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            Row(
+                modifier = Modifier.fillMaxWidth().height(40.dp), 
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (hasUnread) {
+                    Surface(
+                        onClick = onMarkAllAsRead,
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFFFDEEE9)
                     ) {
-                        Icon(
-                            Icons.Default.DoneAll,
-                            contentDescription = null,
-                            tint = Color(0xFFE27553),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Marcar todo como visto",
-                            color = Color(0xFFE27553),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.DoneAll,
+                                contentDescription = null,
+                                tint = Color(0xFFE27553),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Marcar todo como visto",
+                                color = Color(0xFFE27553),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
@@ -262,13 +269,10 @@ fun ActivityCard(data: NotificationData, onClick: () -> Unit) {
 @Composable
 fun ConfigTab(pushEnabled: Boolean, nearEnabled: Boolean, onTogglePush: (Boolean) -> Unit, onToggleNear: (Boolean) -> Unit) {
     Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Elige qué notificaciones quieres recibir", fontSize = 14.sp, color = Color.Gray)
+        Text("Configura tus alertas", fontSize = 14.sp, color = Color.Gray)
         
         ConfigItem("Notificaciones al celular", "Recibe alertas de nuevos locales incluso con la app cerrada", pushEnabled, onTogglePush)
-        ConfigItem("Nuevos lugares cercanos", "Huariques que abren cerca de tu zona", nearEnabled, onToggleNear)
-        ConfigItem("Ofertas y descuentos", "Promociones de huariques cerca de ti", true)
-        ConfigItem("Actividad en reseñas", "Valoraciones de tus comentarios", false)
-        ConfigItem("Eventos gastronómicos", "Festivales y eventos en mercados", true)
+        ConfigItem("Nuevos lugares cercanos", "Huariques que abren a menos de 200m de tu zona", nearEnabled, onToggleNear)
     }
 }
 
