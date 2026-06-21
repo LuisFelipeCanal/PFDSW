@@ -115,7 +115,15 @@ fun MapScreen(
             TopAppBar(
                 title = { Text(if (currentFocusedId.isNotEmpty()) focusedHuarique?.name ?: "Ubicación" else "Mapa de huariques", fontSize = 18.sp) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        if (currentFocusedId.isNotEmpty()) {
+                            // Si hay un restaurante seleccionado, el botón atrás solo quita la selección
+                            currentFocusedId = ""
+                        } else {
+                            // Si no hay nada seleccionado, regresa a la pantalla anterior
+                            onBack()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
                     }
                 },

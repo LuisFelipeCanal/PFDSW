@@ -70,16 +70,11 @@ fun MarketBottomNavigationBar(navController: NavController) {
                             launchSingleTop = true
                         }
                     } else if (!isSelected) {
-                        // Si cambiamos de pestaña, vamos a la raíz de la nueva
+                        // Si cambiamos de pestaña, navegamos a ella preservando el historial
+                        // para que el botón "atrás" regrese a la pestaña anterior
                         navController.navigate(item.route) {
-                            popUpTo(MarketRoutes.HOME) {
-                                saveState = true
-                            }
                             launchSingleTop = true
-                            // Forzamos carga limpia para evitar el flote entre Detail y Mapa/Favoritos
-                            restoreState = item.route != MarketRoutes.HOME && 
-                                           !item.route.contains("map") && 
-                                           !item.route.contains("favorites")
+                            restoreState = true
                         }
                     }
                 }
