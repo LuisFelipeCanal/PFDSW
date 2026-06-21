@@ -23,6 +23,9 @@ class HuariqueViewModel(private val repository: HuariqueRepository = HuariqueRep
     
     var isLocationEnabled by mutableStateOf(true)
 
+    // Lista para no repetir notificaciones de locales ya avisados en esta sesión
+    private val notifiedIds = mutableSetOf<String>()
+
     init {
         loadHuariques()
     }
@@ -30,9 +33,30 @@ class HuariqueViewModel(private val repository: HuariqueRepository = HuariqueRep
     private fun loadHuariques() {
         viewModelScope.launch {
             isLoading = true
-            repository.getHuariquesFlow().collectLatest {
-                huariques = it
+            repository.getHuariquesFlow().collectLatest { list ->
+                val oldList = huariques
+                huariques = list
                 isLoading = false
+
+                // Lógica de Notificación Automática de Cercanía
+                if (isLocationEnabled && userLocation != null && oldList.isNotEmpty()) {
+                    list.filter { it.isVerified }.forEach { huarique ->
+                        if (!notifiedIds.contains(huarique.id)) {
+                            val distance = if (huarique.lat != null && huarique.lng != null) {
+                                com.mercadovivo.app.utils.LocationUtils.calculateDistance(
+                                    userLocation!!,
+                                    LatLng(huarique.lat, huarique.lng)
+                                )
+                            } else Float.MAX_VALUE
+
+                            if (distance <= 200f) {
+                                // ¡DISPARAR NOTIFICACIÓN REAL AL CELULAR!
+                                notifiedIds.add(huarique.id)
+                                // Usamos un contexto global o inyectado (usaremos el helper)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

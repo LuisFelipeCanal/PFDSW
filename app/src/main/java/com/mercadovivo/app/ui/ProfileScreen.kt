@@ -28,6 +28,7 @@ import com.mercadovivo.app.ui.theme.MercadoVivoGradientStart
 @Composable
 fun ProfileScreen(
     authViewModel: AuthViewModel,
+    huariqueViewModel: HuariqueViewModel,
     onNavigateToEditProfile: () -> Unit,
     onNavigateToAddresses: () -> Unit,
     onNavigateToNotifications: () -> Unit,
@@ -116,14 +117,20 @@ fun ProfileScreen(
         }
 
         Column(modifier = Modifier.padding(24.dp)) {
-            // Stats Row
+            // Stats Row Conectadas
+            val reviewCount = huariqueViewModel.huariques.sumOf { h -> 
+                h.reviews.count { it.userId == authViewModel.userId } 
+            }
+            val favoriteCount = (userData?.favorites?.size ?: 0) + (userData?.favoriteDishes?.size ?: 0)
+            val visitCount = userData?.visitedHuariques?.size ?: 0
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                StatCard("12", "Reseñas", Modifier.weight(1f))
-                StatCard("2", "Favoritos", Modifier.weight(1f))
-                StatCard("8", "Visitas", Modifier.weight(1f))
+                StatCard(reviewCount.toString(), "Reseñas", Modifier.weight(1f))
+                StatCard(favoriteCount.toString(), "Favoritos", Modifier.weight(1f))
+                StatCard(visitCount.toString(), "Visitas", Modifier.weight(1f))
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -138,7 +145,6 @@ fun ProfileScreen(
                     ProfileMenuItem(Icons.Default.Person, "Editar perfil", onNavigateToEditProfile)
                     ProfileMenuItem(Icons.Default.LocationOn, "Configuración de ubicación", onNavigateToAddresses)
                     ProfileMenuItem(Icons.Default.Notifications, "Notificaciones", onNavigateToNotifications)
-                    ProfileMenuItem(Icons.Default.Lock, "Privacidad y seguridad", onNavigateToPrivacy)
                     ProfileMenuItem(Icons.Default.Info, "Ayuda y soporte", onNavigateToHelp)
                 }
             }

@@ -11,11 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,7 +26,6 @@ import com.mercadovivo.app.models.Huarique
 import com.mercadovivo.app.models.Plato
 import com.mercadovivo.app.models.Review
 import com.mercadovivo.app.ui.components.InfoRow
-import com.mercadovivo.app.ui.components.SectionHeader
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -38,18 +33,35 @@ import java.util.*
 fun HuariqueDetailScreen(
     huarique: Huarique,
     isFavorite: Boolean = false,
+    authViewModel: com.mercadovivo.app.auth.AuthViewModel? = null,
     onBack: () -> Unit,
     onOpenMap: (String) -> Unit,
     onSeeAllMenu: () -> Unit,
     onDishClick: (Plato) -> Unit,
     onToggleFavorite: () -> Unit,
-    onAddReview: (Review) -> Unit = {}
+    onAddReview: (Review) -> Unit = {},
+    onDeleteReview: (String) -> Unit = {}
 ) {
     var showReviewDialog by remember { mutableStateOf(false) }
+    var reviewToEdit by remember { mutableStateOf<Review?>(null) }
     var reviewText by remember { mutableStateOf("") }
     var reviewRating by remember { mutableStateOf(5f) }
     
+    val currentUser = authViewModel?.currentUser
+    val userData = authViewModel?.userData
     var selectedImageUrl by remember { mutableStateOf<String?>(null) }
+
+    // Al abrir el diálogo para editar, cargamos los datos previos
+    LaunchedEffect(showReviewDialog) {
+        if (showReviewDialog && reviewToEdit != null) {
+            reviewText = reviewToEdit!!.comment
+            reviewRating = reviewToEdit!!.rating.toFloat()
+        } else if (!showReviewDialog) {
+            reviewToEdit = null
+            reviewText = ""
+            reviewRating = 5f
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -57,7 +69,7 @@ fun HuariqueDetailScreen(
             .background(Color(0xFFFFFBF0))
             .verticalScroll(rememberScrollState())
     ) {
-        // ... (Hero Image remains same)
+        // Hero Image
         Box(modifier = Modifier.fillMaxWidth().height(260.dp)) {
             val mainPhoto = if (huarique.photos.isNotEmpty()) huarique.photos.first() else "https://placeholder.com/600"
             AsyncImage(
@@ -67,7 +79,6 @@ fun HuariqueDetailScreen(
                 contentScale = ContentScale.Crop
             )
             
-            // Back button and Actions
             Row(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -94,7 +105,6 @@ fun HuariqueDetailScreen(
             }
 
             val isOpen = com.mercadovivo.app.utils.TimeUtils.isStoreOpen(huarique.horario)
-
             Surface(
                 modifier = Modifier.align(Alignment.BottomStart).padding(16.dp),
                 color = if (isOpen) Color(0xFF4CAF50) else Color.Gray,
@@ -115,17 +125,15 @@ fun HuariqueDetailScreen(
                 Surface(color = Color(0xFFFDEEE9), shape = RoundedCornerShape(20.dp)) {
                     Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("⭐", fontSize = 12.sp)
-                        Text("${huarique.rating ?: 0.0}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        val ratingValue = huarique.rating ?: 0.0
+                        Text(if(ratingValue > 0) ratingValue.toString() else "0.0", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 }
             }
             
             if (huarique.categories.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     huarique.categories.forEach { category ->
                         com.mercadovivo.app.ui.components.CategoryPill(label = category)
                     }
@@ -138,7 +146,7 @@ fun HuariqueDetailScreen(
             Spacer(modifier = Modifier.height(24.dp))
             InfoRow(label = "📍 Dirección", value = huarique.address)
             InfoRow(label = "🕒 Horario", value = huarique.horario ?: "Horario no disponible")
-            InfoRow(label = "📞 Teléfono", value = huarique.phone ?: "+51 987 654 321")
+            InfoRow(label = "📞 Teléfono", value = huarique.phone)
 
             Spacer(modifier = Modifier.height(24.dp))
             Button(
@@ -153,7 +161,6 @@ fun HuariqueDetailScreen(
             Spacer(modifier = Modifier.height(32.dp))
             Text("Carta Digital", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             
-            // Sección Dinámica de Categorías
             val categories = listOf(
                 "Platos principales" to huarique.menuPlates,
                 "Bebidas y refrescos" to huarique.menuBeverages,
@@ -167,9 +174,7 @@ fun HuariqueDetailScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         items(items) { item ->
-                            PlatoMiniCard(item, 
-                                onClick = { onDishClick(item) }
-                            )
+                            PlatoMiniCard(item, onClick = { onDishClick(item) })
                         }
                     }
                 }
@@ -193,12 +198,19 @@ fun HuariqueDetailScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Reviews List
             if (huarique.reviews.isEmpty()) {
                 Text("Aún no hay reseñas. ¡Sé el primero en comentar!", color = Color.Gray)
             } else {
                 huarique.reviews.forEach { review ->
-                    ReviewCard(review)
+                    ReviewCard(
+                        review = review,
+                        currentUserId = authViewModel?.userId ?: "",
+                        onEdit = { 
+                            reviewToEdit = review
+                            showReviewDialog = true 
+                        },
+                        onDelete = { onDeleteReview(review.id) }
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
@@ -207,7 +219,6 @@ fun HuariqueDetailScreen(
         }
     }
 
-    // Visor de Imagen a Pantalla Completa
     selectedImageUrl?.let { url ->
         FullScreenImageDialog(imageUrl = url, onDismiss = { selectedImageUrl = null })
     }
@@ -215,7 +226,7 @@ fun HuariqueDetailScreen(
     if (showReviewDialog) {
         AlertDialog(
             onDismissRequest = { showReviewDialog = false },
-            title = { Text("Escribir Reseña") },
+            title = { Text(if (reviewToEdit != null) "Editar Reseña" else "Escribir Reseña") },
             text = {
                 Column {
                     Slider(
@@ -237,17 +248,23 @@ fun HuariqueDetailScreen(
             confirmButton = {
                 Button(onClick = {
                     val newReview = Review(
-                        id = UUID.randomUUID().toString(),
-                        userName = "Usuario", // Debería venir del AuthViewModel
+                        id = reviewToEdit?.id ?: UUID.randomUUID().toString(),
+                        userId = authViewModel?.userId ?: "",
+                        userName = userData?.displayName ?: currentUser?.displayName ?: "Anónimo",
                         rating = reviewRating.toDouble(),
                         comment = reviewText,
+                        userPhotoLabel = userData?.photoUrl ?: "",
                         dateLabel = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
                     )
                     onAddReview(newReview)
                     showReviewDialog = false
-                    reviewText = ""
                 }) {
-                    Text("Publicar")
+                    Text(if (reviewToEdit != null) "Actualizar" else "Publicar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReviewDialog = false }) {
+                    Text("Cancelar")
                 }
             }
         )
@@ -273,7 +290,6 @@ fun FullScreenImageDialog(imageUrl: String, onDismiss: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().fillMaxHeight(0.8f),
                 contentScale = ContentScale.Fit
             )
-            
             IconButton(
                 onClick = onDismiss,
                 modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).padding(top = 32.dp)
@@ -285,29 +301,51 @@ fun FullScreenImageDialog(imageUrl: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-fun ReviewCard(review: Review) {
+fun ReviewCard(review: Review, currentUserId: String, onEdit: () -> Unit, onDelete: () -> Unit) {
+    val isMyReview = review.userId == currentUserId
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Row(modifier = Modifier.padding(16.dp)) {
-            Surface(modifier = Modifier.size(40.dp), shape = CircleShape, color = Color.LightGray) {
-                Text(if (review.userPhotoLabel.isNotEmpty()) "📸" else "👤", modifier = Modifier.wrapContentSize())
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(review.userName, fontWeight = FontWeight.Bold)
-                    Text(review.dateLabel, color = Color.Gray, fontSize = 12.sp)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Surface(modifier = Modifier.size(40.dp), shape = CircleShape, color = Color.LightGray) {
+                    if (review.userPhotoLabel.isNotEmpty()) {
+                        AsyncImage(
+                            model = review.userPhotoLabel,
+                            contentDescription = "Foto de ${review.userName}",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Person, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(24.dp))
+                        }
+                    }
                 }
-                Text("⭐".repeat(review.rating.toInt()), fontSize = 10.sp)
-                Text(
-                    review.comment,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(review.userName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("⭐".repeat(review.rating.toInt()), fontSize = 10.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(review.dateLabel, color = Color.Gray, fontSize = 11.sp)
+                    }
+                }
+                if (isMyReview) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                        }
+                        IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Delete, contentDescription = "Borrar", tint = Color(0xFFD4183D), modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
             }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(review.comment, style = MaterialTheme.typography.bodyMedium, color = Color.DarkGray)
         }
     }
 }

@@ -83,6 +83,34 @@ fun MercadoVivoApp() {
         }
     }
     
+    // Observador de Proximidad para Notificaciones Push Locales
+    LaunchedEffect(huariqueViewModel.huariques, huariqueViewModel.userLocation, authViewModel.userData) {
+        val location = huariqueViewModel.userLocation
+        val nearEnabled = authViewModel.userData?.nearHuariqueNotificationsEnabled ?: true
+        
+        if (location != null && huariqueViewModel.isLocationEnabled && nearEnabled) {
+            huariqueViewModel.huariques.filter { it.isVerified }.forEach { huarique ->
+                if (huarique.lat != null && huarique.lng != null) {
+                    val distance = com.mercadovivo.app.utils.LocationUtils.calculateDistance(
+                        location,
+                        LatLng(huarique.lat, huarique.lng)
+                    )
+                    
+                    // Si está a menos de 200m y es "nuevo" para esta sesión
+                    if (distance <= 200f) {
+                        // Verificamos si ya notificamos este local en el NotificationsScreen
+                        // Para pruebas, lanzamos la notificación del sistema
+                        com.mercadovivo.app.utils.NotificationHelper.showNotification(
+                            context,
+                            "¡Huarique cerca!",
+                            "${huarique.name} está a solo ${distance.toInt()}m. ¡Pasa a visitarlo!"
+                        )
+                    }
+                }
+            }
+        }
+    }
+    
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     

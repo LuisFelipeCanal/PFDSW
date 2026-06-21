@@ -182,6 +182,22 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
         }
     }
 
+    fun toggleNearHuariqueNotifications(enabled: Boolean) {
+        val uid = userId ?: return
+        viewModelScope.launch {
+            try {
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uid)
+                    .update("nearHuariqueNotificationsEnabled", enabled)
+                    .await()
+                loadUserData()
+            } catch (e: Exception) {
+                // Manejar error
+            }
+        }
+    }
+
     fun markNotificationsAsRead() {
         val uid = userId ?: return
         val now = System.currentTimeMillis()
@@ -202,6 +218,24 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
                     .set(data, com.google.firebase.firestore.SetOptions.merge())
                     .await()
                 loadUserData()
+            }
+        }
+    }
+
+    fun recordVisit(huariqueId: String) {
+        val uid = userId ?: return
+        val currentVisits = userData?.visitedHuariques?.toMutableList() ?: mutableListOf()
+        if (!currentVisits.contains(huariqueId)) {
+            currentVisits.add(huariqueId)
+            viewModelScope.launch {
+                try {
+                    FirebaseFirestore.getInstance()
+                        .collection("users")
+                        .document(uid)
+                        .update("visitedHuariques", currentVisits)
+                        .await()
+                    loadUserData()
+                } catch (e: Exception) { }
             }
         }
     }

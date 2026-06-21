@@ -59,6 +59,15 @@ fun NotificationsScreen(
             val sdf = SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault())
             val timeStr = sdf.format(Date(huarique.createdAt))
 
+            val isNewNotification = if (huarique.createdAt < 1000000000000L) {
+                // Si la fecha es muy antigua (como el año 2000 que pusimos)
+                // solo es nueva si nunca hemos pulsado "marcar como leído" (lastReadAt == 0)
+                lastReadAt == 0L
+            } else {
+                // Si tiene fecha real (como Campollo), es nueva si es posterior a nuestra última lectura
+                huarique.createdAt > lastReadAt
+            }
+
             NotificationData(
                 title = if (isUltraNear) "¡Nuevo Huarique a la vuelta!" else "¡Nuevo Huarique abierto!",
                 content = if (isUltraNear) 
@@ -66,7 +75,7 @@ fun NotificationsScreen(
                     else "${huarique.name} ya está disponible $distanceText. ¡No te lo pierdas!",
                 time = timeStr,
                 icon = Icons.Default.Storefront,
-                isNew = huarique.createdAt > lastReadAt && huarique.createdAt > (System.currentTimeMillis() - 172800000),
+                isNew = isNewNotification && huarique.createdAt > (System.currentTimeMillis() - 172800000),
                 iconColor = if (isUltraNear) Color(0xFF4CAF50) else Color(0xFFF9B36D)
             )
         }
@@ -148,7 +157,9 @@ fun NotificationsScreen(
         } else {
             ConfigTab(
                 pushEnabled = userData?.pushNotificationsEnabled ?: true,
-                onTogglePush = { authViewModel.togglePushNotifications(it) }
+                nearEnabled = userData?.nearHuariqueNotificationsEnabled ?: true,
+                onTogglePush = { authViewModel.togglePushNotifications(it) },
+                onToggleNear = { authViewModel.toggleNearHuariqueNotifications(it) }
             )
         }
     }
@@ -208,13 +219,13 @@ fun ActivityCard(data: NotificationData) {
 }
 
 @Composable
-fun ConfigTab(pushEnabled: Boolean, onTogglePush: (Boolean) -> Unit) {
+fun ConfigTab(pushEnabled: Boolean, nearEnabled: Boolean, onTogglePush: (Boolean) -> Unit, onToggleNear: (Boolean) -> Unit) {
     Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Elige qué notificaciones quieres recibir", fontSize = 14.sp, color = Color.Gray)
         
         ConfigItem("Notificaciones al celular", "Recibe alertas de nuevos locales incluso con la app cerrada", pushEnabled, onTogglePush)
+        ConfigItem("Nuevos lugares cercanos", "Huariques que abren cerca de tu zona", nearEnabled, onToggleNear)
         ConfigItem("Ofertas y descuentos", "Promociones de huariques cerca de ti", true)
-        ConfigItem("Nuevos lugares cercanos", "Huariques que abren cerca de tu zona", true)
         ConfigItem("Actividad en reseñas", "Valoraciones de tus comentarios", false)
         ConfigItem("Eventos gastronómicos", "Festivales y eventos en mercados", true)
     }

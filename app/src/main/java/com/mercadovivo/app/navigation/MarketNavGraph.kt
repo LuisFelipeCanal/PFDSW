@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -147,9 +148,15 @@ fun MercadoVivoNavGraph(
             val repository = remember { com.mercadovivo.app.data.HuariqueRepository() }
 
             if (huarique != null) {
+                // Registrar visita automáticamente
+                LaunchedEffect(huarique.id) {
+                    authViewModel.recordVisit(huarique.id)
+                }
+
                 HuariqueDetailScreen(
                     huarique = huarique,
                     isFavorite = authViewModel.userData?.favorites?.contains(huarique.id) ?: false,
+                    authViewModel = authViewModel,
                     onBack = { 
                         if (navController.currentDestination?.route?.contains("detail") == true) {
                             navController.popBackStack() 
@@ -182,6 +189,11 @@ fun MercadoVivoNavGraph(
                     onAddReview = { review ->
                         scope.launch {
                             repository.saveReview(huarique.id, review)
+                        }
+                    },
+                    onDeleteReview = { reviewId ->
+                        scope.launch {
+                            repository.deleteReview(huarique.id, reviewId)
                         }
                     }
                 )
@@ -313,6 +325,7 @@ fun MercadoVivoNavGraph(
         composable(MarketRoutes.PROFILE) {
             ProfileScreen(
                 authViewModel = authViewModel,
+                huariqueViewModel = huariqueViewModel,
                 onNavigateToEditProfile = { navController.navigate(MarketRoutes.EDIT_PROFILE) },
                 onNavigateToAddresses = { navController.navigate(MarketRoutes.ADDRESSES) },
                 onNavigateToNotifications = { navController.navigate(MarketRoutes.NOTIFICATIONS) },

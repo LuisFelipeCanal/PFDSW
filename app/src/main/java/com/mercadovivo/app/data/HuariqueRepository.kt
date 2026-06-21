@@ -91,8 +91,58 @@ class HuariqueRepository {
     suspend fun saveReview(huariqueId: String, review: Review): Result<Unit> {
         return try {
             val huarique = findByIdAsync(huariqueId) ?: throw Exception("Huarique no encontrado")
-            val updatedReviews = huarique.reviews + review
-            collection.document(huariqueId).update("reviews", updatedReviews).await()
+            
+            // Lógica inteligente: Si el ID ya existe, reemplazamos. Si no, añadimos.
+            val currentReviews = huarique.reviews.toMutableList()
+            val existingIndex = currentReviews.indexOfFirst { it.id == review.id }
+            
+            if (existingIndex != -1) {
+                currentReviews[existingIndex] = review // Editamos la existente
+            } else {
+                currentReviews.add(review) // Añadimos la nueva
+            }
+            
+            val updatedReviews = currentReviews.toList()
+            
+            // Calcular el nuevo promedio de estrellas
+            val newRating = if (updatedReviews.isNotEmpty()) {
+                val average = updatedReviews.map { it.rating }.average()
+                (Math.round(average * 10.0) / 10.0).toDouble()
+            } else {
+                0.0
+            }
+
+            val updates = mutableMapOf<String, Any>(
+                "reviews" to updatedReviews,
+                "rating" to newRating
+            )
+
+            collection.document(huariqueId).set(updates, com.google.firebase.firestore.SetOptions.merge()).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteReview(huariqueId: String, reviewId: String): Result<Unit> {
+        return try {
+            val huarique = findByIdAsync(huariqueId) ?: throw Exception("Huarique no encontrado")
+            val updatedReviews = huarique.reviews.filter { it.id != reviewId }
+            
+            // Recalcular promedio tras eliminar
+            val newRating = if (updatedReviews.isNotEmpty()) {
+                val average = updatedReviews.map { it.rating }.average()
+                Math.round(average * 10.0) / 10.0
+            } else {
+                0.0
+            }
+
+            val updates = mapOf(
+                "reviews" to updatedReviews,
+                "rating" to newRating
+            )
+
+            collection.document(huariqueId).update(updates).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

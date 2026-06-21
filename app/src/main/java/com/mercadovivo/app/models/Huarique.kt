@@ -14,7 +14,7 @@ data class Huarique(
     val district: String = "",
     val lat: Double? = null,
     val lng: Double? = null,
-    val rating: Double? = null,
+    val rating: Double? = 0.0,
     val categories: List<String> = emptyList(),
     val suggestedCategory: String = "", // Sugerencia del usuario
     val horario: String? = null,
@@ -38,7 +38,7 @@ data class Huarique(
     @get:com.google.firebase.firestore.PropertyName("isVerified")
     @set:com.google.firebase.firestore.PropertyName("isVerified")
     var isVerified: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis(),
+    val createdAt: Long = 946684800000L, // Por defecto año 2000 para locales antiguos
     val submittedBy: String = ""     // UID del usuario que lo registró
 )
 

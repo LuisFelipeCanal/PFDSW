@@ -325,11 +325,18 @@ fun HuariqueCardHome(
                     color = Color.White.copy(alpha = 0.9f)
                 ) {
                     Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("⭐", fontSize = 12.sp)
-                        Text("${huarique.rating ?: 0.0}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        val currentRating = huarique.rating ?: 0.0
+                        Text(text = "⭐", fontSize = 10.sp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if(currentRating > 0) currentRating.toString() else "0.0",
+                            fontWeight = FontWeight.Bold, 
+                            fontSize = 12.sp,
+                            color = Color.Black
+                        )
                     }
                 }
-            }
+  }
             
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(text = huarique.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)

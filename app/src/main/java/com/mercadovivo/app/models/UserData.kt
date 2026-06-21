@@ -9,7 +9,9 @@ data class UserData(
     val photoUrl: String = "",
     val lastNotificationsReadAt: Long = 0,
     val pushNotificationsEnabled: Boolean = true,
+    val nearHuariqueNotificationsEnabled: Boolean = true,
     val favorites: List<String> = emptyList(),
     val favoriteDishes: List<String> = emptyList(),
+    val visitedHuariques: List<String> = emptyList(),
     val role: String = "USER"
 )
