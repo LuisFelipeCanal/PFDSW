@@ -1,5 +1,7 @@
 package com.mercadovivo.app.ui
 
+import android.app.Activity
+import android.content.pm.ActivityInfo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,6 +13,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Favorite
@@ -21,11 +28,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
@@ -271,13 +285,16 @@ fun DishDetailScreen(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@UnstableApi
 @Composable
 fun VideoPrepScreen(
     huarique: Huarique,
     plato: Plato,
     onBack: () -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
+    var isFullScreen by remember { mutableStateOf(false) }
+    var isMuted by remember { mutableStateOf(false) }
     
     val videoUrl = remember(plato.videoLabel) {
         if (plato.videoLabel.contains("dropbox.com")) {
@@ -300,132 +317,247 @@ fun VideoPrepScreen(
         }
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            exoPlayer.release()
+    // Manejo de Inmersión (Esconder barras del sistema)
+    LaunchedEffect(isFullScreen) {
+        val activity = context as? Activity ?: return@LaunchedEffect
+        val window = activity.window
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        
+        if (isFullScreen) {
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            controller.show(WindowInsetsCompat.Type.systemBars())
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Video de Preparación", fontSize = 18.sp) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .background(Color.Black)
-                .verticalScroll(rememberScrollState())
-        ) {
-            // Header Card
-            Card(
-                modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(plato.name, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    Text(huarique.name, color = Color.Gray, fontSize = 14.sp)
-                }
-            }
+    LaunchedEffect(isMuted) {
+        exoPlayer.volume = if (isMuted) 0f else 1f
+    }
 
-            // REPRODUCTOR DE VIDEO REAL
-            Box(modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(220.dp).background(Color.DarkGray, RoundedCornerShape(16.dp))) {
-                if (videoUrl.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Video no disponible", color = Color.Gray)
-                    }
-                } else {
-                    AndroidView(
-                        factory = { ctx ->
-                            PlayerView(ctx).apply {
-                                player = exoPlayer
-                                useController = true
+    DisposableEffect(Unit) {
+        onDispose {
+            exoPlayer.release()
+            val activity = context as? Activity
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            val window = activity?.window ?: return@onDispose
+            WindowCompat.getInsetsController(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        if (!isFullScreen) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text("Video de Preparación", fontSize = 18.sp) },
+                        navigationIcon = {
+                            IconButton(onClick = onBack) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                             }
-                        },
-                        modifier = Modifier.fillMaxSize()
+                        }
                     )
                 }
-            }
-
-            // Info Section
-            Card(
-                modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Sobre este video", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("En este video podrás ver el proceso de preparación de ${plato.name}. Observa las técnicas y pasos principales que hacen especial a este plato.", fontSize = 14.sp)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Surface(color = Color(0xFFFDEEE9), shape = RoundedCornerShape(8.dp)) {
-                        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.Top) {
-                            Text("ℹ️", fontSize = 14.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Este video muestra el proceso general. Las cantidades exactas y técnicas específicas son parte del secreto de cada chef.", fontSize = 12.sp)
+            ) { padding ->
+                Column(
+                    modifier = Modifier
+                        .padding(padding)
+                        .fillMaxSize()
+                        .background(Color.Black)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    // Header Card
+                    Card(
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(plato.name, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                            Text(huarique.name, color = Color.Gray, fontSize = 14.sp)
                         }
                     }
+
+                    // REPRODUCTOR EN VISTA NORMAL
+                    VideoBox(
+                        exoPlayer = exoPlayer,
+                        videoUrl = videoUrl,
+                        isMuted = isMuted,
+                        onMuteToggle = { isMuted = !isMuted },
+                        onFullScreenToggle = { isFullScreen = true }
+                    )
+
+                    // Resto de la información (Sobre este video, RA, Ingredientes...)
+                    // ... (resto del contenido que ya tenías)
+                    VideoInfoSections(huarique, plato)
                 }
             }
-
-            // RA Card
-            Card(
-                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🚀", fontSize = 18.sp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Próximamente: Realidad Aumentada", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Pronto podrás visualizar el proceso de preparación en 3D con Realidad Aumentada. Podrás ver cada paso desde todos los ángulos.", color = Color.Gray, fontSize = 12.sp)
-                }
-            }
-
-            // Ingredients
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text("Ingredientes del video", color = Color.Gray, fontSize = 16.sp)
-                Spacer(modifier = Modifier.height(16.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White
+        } else {
+            // VISTA PANTALLA COMPLETA REAL
+            Box(modifier = Modifier.fillMaxSize()) {
+                AndroidView(
+                    factory = { ctx ->
+                        PlayerView(ctx).apply {
+                            player = exoPlayer
+                            useController = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+                
+                // Controles sobre el video en Fullscreen (Movidos a la esquina superior derecha)
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                   Column(modifier = Modifier.padding(16.dp)) {
-                       val chunks = plato.ingredients.chunked(2)
-                       chunks.forEach { rowIngredients ->
-                           Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                               rowIngredients.forEach { ingredient ->
-                                   Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                       Surface(modifier = Modifier.size(6.dp), shape = CircleShape, color = Color(0xFFE27553)) {}
-                                       Spacer(modifier = Modifier.width(8.dp))
-                                       Column {
-                                           Text(ingredient.name, fontSize = 14.sp, color = Color.Black, fontWeight = FontWeight.Medium)
-                                           if (ingredient.amount.isNotEmpty()) {
-                                               Text(ingredient.amount, fontSize = 12.sp, color = Color.Gray)
-                                           }
+                    IconButton(
+                        onClick = { isMuted = !isMuted },
+                        modifier = Modifier.background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = "Mute",
+                            tint = Color.White
+                        )
+                    }
+                    IconButton(
+                        onClick = { isFullScreen = false },
+                        modifier = Modifier.background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Icon(Icons.Default.FullscreenExit, contentDescription = "Exit Fullscreen", tint = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@UnstableApi
+@Composable
+fun VideoBox(
+    exoPlayer: ExoPlayer,
+    videoUrl: String,
+    isMuted: Boolean,
+    onMuteToggle: () -> Unit,
+    onFullScreenToggle: () -> Unit
+) {
+    Box(modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(220.dp).background(Color.DarkGray, RoundedCornerShape(16.dp))) {
+        if (videoUrl.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Video no disponible", color = Color.Gray)
+            }
+        } else {
+            AndroidView(
+                factory = { ctx ->
+                    PlayerView(ctx).apply {
+                        player = exoPlayer
+                        useController = true
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+            
+            Row(
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                IconButton(
+                    onClick = onMuteToggle,
+                    modifier = Modifier.background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                        contentDescription = "Mute",
+                        tint = Color.White
+                    )
+                }
+                IconButton(
+                    onClick = onFullScreenToggle,
+                    modifier = Modifier.background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Icon(Icons.Default.Fullscreen, contentDescription = "Fullscreen", tint = Color.White)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun VideoInfoSections(huarique: Huarique, plato: Plato) {
+    Column {
+        // Info Section
+        Card(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Sobre este video", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("En este video podrás ver el proceso de preparación de ${plato.name}. Observa las técnicas y pasos principales que hacen especial a este plato.", fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(color = Color(0xFFFDEEE9), shape = RoundedCornerShape(8.dp)) {
+                    Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.Top) {
+                        Text("ℹ️", fontSize = 14.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Este video muestra el proceso general. Las cantidades exactas y técnicas específicas son parte del secreto de cada chef.", fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+
+        // RA Card
+        Card(
+            modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🚀", fontSize = 18.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Próximamente: Realidad Aumentada", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Pronto podrás visualizar el proceso de preparación en 3D con Realidad Aumentada. Podrás ver cada paso desde todos los ángulos.", color = Color.Gray, fontSize = 12.sp)
+            }
+        }
+
+        // Ingredients
+        Column(modifier = Modifier.padding(24.dp)) {
+            Text("Ingredientes del video", color = Color.Gray, fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(16.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White
+            ) {
+               Column(modifier = Modifier.padding(16.dp)) {
+                   val chunks = plato.ingredients.chunked(2)
+                   chunks.forEach { rowIngredients ->
+                       Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                           rowIngredients.forEach { ingredient ->
+                               Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                   Surface(modifier = Modifier.size(6.dp), shape = CircleShape, color = Color(0xFFE27553)) {}
+                                   Spacer(modifier = Modifier.width(8.dp))
+                                   Column {
+                                       Text(ingredient.name, fontSize = 14.sp, color = Color.Black, fontWeight = FontWeight.Medium)
+                                       if (ingredient.amount.isNotEmpty()) {
+                                           Text(ingredient.amount, fontSize = 12.sp, color = Color.Gray)
                                        }
                                    }
                                }
-                               if (rowIngredients.size == 1) Spacer(modifier = Modifier.weight(1f))
                            }
+                           if (rowIngredients.size == 1) Spacer(modifier = Modifier.weight(1f))
                        }
                    }
-                }
+               }
             }
-            Spacer(modifier = Modifier.height(80.dp))
         }
+        Spacer(modifier = Modifier.height(80.dp))
     }
 }

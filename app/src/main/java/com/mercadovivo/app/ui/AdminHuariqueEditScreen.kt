@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -84,6 +85,7 @@ fun AdminHuariqueEditScreen(
     val menuDesserts = remember { mutableStateListOf<com.mercadovivo.app.models.Plato>() }
     
     var isSaving by remember { mutableStateOf(false) }
+    var loadingMessage by remember { mutableStateOf("Enviando información...") }
     val hasInitialized = remember { mutableStateOf(false) }
 
     LaunchedEffect(huarique) {
@@ -169,7 +171,12 @@ fun AdminHuariqueEditScreen(
                                 isVerified = if (isAdmin) isVerified else (huarique?.isVerified ?: false)
                             )
                             scope.launch {
-                                val result = repository.saveHuarique(context, finalHuarique, newPhotosUris.toList())
+                                val result = repository.saveHuarique(
+                                    context = context, 
+                                    huarique = finalHuarique, 
+                                    imageUris = newPhotosUris.toList(),
+                                    onProgress = { message -> loadingMessage = message }
+                                )
                                 if (result.isSuccess) {
                                     onBack()
                                 } else {
@@ -350,7 +357,7 @@ fun AdminHuariqueEditScreen(
                 }
 
                 item {
-                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Platos", style = MaterialTheme.typography.titleMedium, color = Color(0xFFE27553))
                         IconButton(onClick = { menuPlates.add(com.mercadovivo.app.models.Plato(id = java.util.UUID.randomUUID().toString())) }) {
@@ -403,12 +410,12 @@ fun AdminHuariqueEditScreen(
                         CircularProgressIndicator(color = Color.White)
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            "Enviando información...", 
+                            loadingMessage, 
                             color = Color.White, 
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Esto puede tardar unos segundos si hay fotos pesadas.", 
+                            "Por favor, no cierres la aplicación.",
                             color = Color.White.copy(alpha = 0.8f),
                             fontSize = 12.sp,
                             modifier = Modifier.padding(top = 8.dp)
@@ -456,15 +463,42 @@ private fun MenuItemEditor(item: com.mercadovivo.app.models.Plato, onUpdate: (co
                     }) { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp)) }
                 }
             }
-            TextButton(onClick = { onUpdate(item.copy(ingredients = item.ingredients + com.mercadovivo.app.models.Ingredient())) }, modifier = Modifier.align(Alignment.End)) {
+            TextButton(onClick = { onUpdate(item.copy(ingredients = item.ingredients + Ingredient())) }, modifier = Modifier.align(Alignment.End)) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                 Text("Añadir Insumo", fontSize = 12.sp)
             }
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
-            Text("Multimedia (Dropbox - Opcional)", style = MaterialTheme.typography.labelLarge, color = Color.Gray)
-            OutlinedTextField(value = item.videoLabel, onValueChange = { onUpdate(item.copy(videoLabel = it)) }, label = { Text("Link Video") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = item.audioLabel, onValueChange = { onUpdate(item.copy(audioLabel = it)) }, label = { Text("Link Audio") }, modifier = Modifier.fillMaxWidth())
-            Text("💡 Si el video ya incluye voz, no es necesario audio por separado.", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            
+            // SECTOR DE VIDEO
+            Text("Video de Preparación", style = MaterialTheme.typography.labelLarge, color = Color(0xFFE27553))
+            
+            val videoLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.GetContent()
+            ) { uri ->
+                uri?.let { onUpdate(item.copy(videoLabel = it.toString())) }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                Button(
+                    onClick = { videoLauncher.launch("video/*") },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (item.videoLabel.isEmpty()) Color.Gray else Color(0xFF4CAF50)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.VideoCall, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (item.videoLabel.isEmpty()) "Cargar Video" else "Video Cargado")
+                }
+                
+                if (item.videoLabel.isNotEmpty()) {
+                    IconButton(onClick = { onUpdate(item.copy(videoLabel = "")) }) {
+                        Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
+                    }
+                }
+            }
+            
+            Text("💡 En la Versión 2.0, este video se subirá automáticamente a Dropbox.", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

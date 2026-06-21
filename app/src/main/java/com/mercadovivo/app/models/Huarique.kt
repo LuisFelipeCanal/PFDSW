@@ -34,7 +34,6 @@ data class Huarique(
     val reviews: List<Review> = emptyList(),
     val ingredients: List<Ingredient> = emptyList(),
     val videoPath: String? = null,   // URL Dropbox
-    val audioPath: String? = null,
     @get:com.google.firebase.firestore.PropertyName("isVerified")
     @set:com.google.firebase.firestore.PropertyName("isVerified")
     var isVerified: Boolean = false,

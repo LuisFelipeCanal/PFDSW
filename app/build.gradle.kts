@@ -8,6 +8,12 @@ android {
     namespace = "com.mercadovivo.app"
     compileSdk = 34
 
+    val localProperties = java.util.Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localProperties.load(localPropertiesFile.inputStream())
+    }
+
     defaultConfig {
         applicationId = "com.mercadovivo.app"
         minSdk = 23
@@ -16,6 +22,11 @@ android {
         versionName = "0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Pasar las llaves de Dropbox a BuildConfig
+        buildConfigField("String", "DROPBOX_APP_KEY", "\"${localProperties.getProperty("DROPBOX_APP_KEY") ?: ""}\"")
+        buildConfigField("String", "DROPBOX_APP_SECRET", "\"${localProperties.getProperty("DROPBOX_APP_SECRET") ?: ""}\"")
+        buildConfigField("String", "DROPBOX_REFRESH_TOKEN", "\"${localProperties.getProperty("DROPBOX_REFRESH_TOKEN") ?: ""}\"")
     }
 
     buildTypes {
@@ -33,6 +44,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.0"
@@ -84,6 +96,9 @@ dependencies {
 
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
+
+    // Dropbox SDK
+    implementation("com.dropbox.core:dropbox-core-sdk:7.0.0")
 
     // Testing / previews
     debugImplementation("androidx.compose.ui:ui-tooling:1.4.3")

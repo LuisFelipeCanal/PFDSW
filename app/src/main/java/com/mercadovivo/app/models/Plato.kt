@@ -10,6 +10,5 @@ data class Plato(
     val rating: Double = 0.0,
     val photoLabel: String = "",
     val videoLabel: String = "", // Link Dropbox Video
-    val audioLabel: String = "", // Link Dropbox Audio
     val chefTip: String = ""
 )
