@@ -1,6 +1,6 @@
 # MercadoVIVO
 
-Proyecto Android en Kotlin (Jetpack Compose) para el curso de DSW.
+This project implements a hybrid cloud architecture for Android using Jetpack Compose, integrating Firebase (Auth, Firestore, Storage) for real-time data management and the Dropbox API for distributed high-performance video streaming. It features a professional recipe player with intelligent aspect-ratio detection and custom media controls, optimized specifically for low-resource environments like the Honor x6c through real-time image compression and asynchronous coroutine handling.
 
 ## Estructura esencial del proyecto
 
