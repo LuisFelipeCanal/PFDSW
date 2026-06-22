@@ -7,7 +7,6 @@ import com.google.firebase.storage.FirebaseStorage
 import com.dropbox.core.DbxRequestConfig
 import com.dropbox.core.oauth.DbxCredential
 import com.dropbox.core.v2.DbxClientV2
-import com.mercadovivo.app.BuildConfig
 import com.mercadovivo.app.models.Huarique
 import com.mercadovivo.app.models.Review
 import kotlinx.coroutines.Dispatchers
@@ -25,10 +24,10 @@ class HuariqueRepository {
     private val auth = FirebaseAuth.getInstance()
     private val collection = db.collection("huariques")
 
-    // Configuración de Dropbox protegida para GitHub
-    private val APP_KEY = BuildConfig.DROPBOX_APP_KEY
-    private val APP_SECRET = BuildConfig.DROPBOX_APP_SECRET
-    private val REFRESH_TOKEN = BuildConfig.DROPBOX_REFRESH_TOKEN
+    // Configuración de Dropbox (Hardcoded para evitar errores de compilación)
+    private val APP_KEY = "v910yruw9dtld5y"
+    private val APP_SECRET = "hiy45stmd0xxxdm"
+    private val REFRESH_TOKEN = "b3DM4_MQ-rAAAAAAAAAAARi8PksiKK0PYwMzm5MZZTntE5b1A4ZGj68yenlmOtAV"
 
     private val dbxClient: DbxClientV2 by lazy {
         val config = DbxRequestConfig.newBuilder("mercado-vivo/v1").build()

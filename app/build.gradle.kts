@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("com.google.gms.google-services")
@@ -10,12 +8,6 @@ android {
     namespace = "com.mercadovivo.app"
     compileSdk = 34
 
-    val localProperties = Properties()
-    val localPropertiesFile = rootProject.file("local.properties")
-    if (localPropertiesFile.exists()) {
-        localProperties.load(localPropertiesFile.inputStream())
-    }
-
     defaultConfig {
         applicationId = "com.mercadovivo.app"
         minSdk = 23
@@ -24,11 +16,6 @@ android {
         versionName = "0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        // Pasar las llaves de Dropbox a BuildConfig
-        buildConfigField("String", "DROPBOX_APP_KEY", "\"${localProperties.getProperty("DROPBOX_APP_KEY") ?: ""}\"")
-        buildConfigField("String", "DROPBOX_APP_SECRET", "\"${localProperties.getProperty("DROPBOX_APP_SECRET") ?: ""}\"")
-        buildConfigField("String", "DROPBOX_REFRESH_TOKEN", "\"${localProperties.getProperty("DROPBOX_REFRESH_TOKEN") ?: ""}\"")
     }
 
     buildTypes {
@@ -46,7 +33,6 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.0"
